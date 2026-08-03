@@ -29,6 +29,7 @@ let locations = defaultLocations;
 let current = 0;
 let collected = [];
 let currentQuizIndex = 0;
+let quizLocked = false; // 防止連撳跳題
 let panorama = null;
 let miniMap = null;
 let miniMarker = null;
@@ -97,6 +98,12 @@ async function loadFromFirestore() {
           quizzes = [{ title: data.quizTitle || '任務', q: data.quizQ, options: data.options || [], answer: data.answer ?? 0 }];
         }
         if (!quizzes) quizzes = [];
+        // 正規化 answer 為數字
+        quizzes = quizzes.map(qz => ({
+          ...qz,
+          answer: Number(qz.answer),
+          options: Array.isArray(qz.options) ? qz.options : []
+        }));
         return {
           name: data.name, sub: data.sub || '', desc: data.desc || '',
           lat: data.lat, lng: data.lng,
@@ -150,6 +157,7 @@ function loadLocation(i) {
   if (i < 0 || i >= locations.length) return;
   current = i;
   currentQuizIndex = 0;
+  quizLocked = false;
   const loc = locations[i];
   document.getElementById('loc-name').textContent = loc.name;
   document.getElementById('loc-sub').textContent = loc.sub || `第 ${i + 1} / ${locations.length} 站`;
@@ -213,6 +221,7 @@ function startQuiz() {
     return;
   }
   currentQuizIndex = 0;
+  quizLocked = false;
   showCurrentQuiz();
 }
 
@@ -220,6 +229,7 @@ function showCurrentQuiz() {
   const quizzes = locations[current].quizzes || [];
   const q = quizzes[currentQuizIndex];
   if (!q) return;
+  quizLocked = false;
   const total = quizzes.length;
   document.getElementById('quiz-title').textContent =
     total > 1 ? `${q.title || '任務'} (${currentQuizIndex + 1}/${total})` : (q.title || '任務');
@@ -229,7 +239,7 @@ function showCurrentQuiz() {
   document.getElementById('quiz-feedback').classList.add('hidden');
   (q.options || []).forEach((opt, idx) => {
     const btn = document.createElement('button');
-    btn.className = 'w-full text-left bg-slate-700 hover:bg-slate-600 px-4 py-3 rounded-xl transition';
+    btn.className = 'w-full text-left bg-slate-700 hover:bg-slate-600 px-4 py-3 rounded-xl transition quiz-opt';
     btn.textContent = opt;
     btn.onclick = () => checkAnswer(idx);
     opts.appendChild(btn);
@@ -239,18 +249,45 @@ function showCurrentQuiz() {
   modal.classList.add('flex');
 }
 
+function lockQuizButtons() {
+  document.querySelectorAll('.quiz-opt').forEach(btn => {
+    btn.disabled = true;
+    btn.classList.add('opacity-60');
+    btn.onclick = null;
+  });
+}
+
 function checkAnswer(idx) {
+  if (quizLocked) return;
   const quizzes = locations[current].quizzes || [];
   const q = quizzes[currentQuizIndex];
+  if (!q) return;
+
   const feedback = document.getElementById('quiz-feedback');
   feedback.classList.remove('hidden');
-  if (idx === q.answer) {
+
+  const correctIndex = Number(q.answer);
+  const chosen = Number(idx);
+
+  if (chosen === correctIndex) {
+    quizLocked = true;
+    lockQuizButtons();
     feedback.textContent = '✅ 答對啦！';
     feedback.className = 'mt-4 text-center font-medium text-emerald-400';
-    if (currentQuizIndex < quizzes.length - 1) {
-      setTimeout(() => { currentQuizIndex++; showCurrentQuiz(); }, 900);
+
+    const isLast = currentQuizIndex >= quizzes.length - 1;
+    if (!isLast) {
+      // 還有下一題，必須全部答完先有印
+      setTimeout(() => {
+        currentQuizIndex++;
+        showCurrentQuiz();
+      }, 900);
     } else {
-      feedback.textContent = '✅ 全部答對！印章已收集！';
+      // 呢個景點所有題都答對
+      const total = quizzes.length;
+      feedback.textContent = total > 1
+        ? `✅ 全部 ${total} 題答對！印章已收集！`
+        : '✅ 答對啦！印章已收集！';
       collected[current] = true;
       updateStamps();
       setTimeout(() => {
@@ -260,12 +297,14 @@ function checkAnswer(idx) {
       }, 1200);
     }
   } else {
+    // 答錯：唔俾印、唔跳題，可以再試
     feedback.textContent = '❌ 不對嗎，再試試！';
     feedback.className = 'mt-4 text-center font-medium text-red-400';
   }
 }
 
 function closeQuiz() {
+  quizLocked = false;
   const modal = document.getElementById('quiz-modal');
   modal.classList.add('hidden');
   modal.classList.remove('flex');
