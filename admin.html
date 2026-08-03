@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>後台管理 | Geog Stamp Quest</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <style>body{font-family:system-ui,sans-serif}</style>
+</head>
+<body class="bg-slate-100 min-h-screen">
+
+  <div id="login-screen" class="fixed inset-0 flex items-center justify-center bg-slate-900">
+    <div class="bg-white rounded-2xl p-8 shadow-xl max-w-sm w-full text-center">
+      <h1 class="text-2xl font-bold mb-2">Geog Stamp Quest 後台</h1>
+      <p class="text-slate-500 mb-6 text-sm">請用授權 Gmail 登入</p>
+      <button id="btn-login" class="bg-blue-600 hover:bg-blue-500 text-white font-medium px-6 py-3 rounded-full w-full flex items-center justify-center gap-2">
+        <i class="fab fa-google"></i> 用 Google 登入
+      </button>
+      <p id="login-error" class="text-red-500 text-sm mt-4 hidden"></p>
+    </div>
+  </div>
+
+  <div id="admin-panel" class="hidden max-w-4xl mx-auto p-4 md:p-8">
+    <div class="flex justify-between items-center mb-6 flex-wrap gap-3">
+      <div>
+        <h1 class="text-2xl font-bold">後台管理</h1>
+        <p class="text-sm text-slate-500">登入：<span id="user-email"></span></p>
+      </div>
+      <div class="flex gap-3 items-center">
+        <a href="index.html" class="text-sky-600 hover:underline text-sm">返回遊戲</a>
+        <button id="btn-logout" class="text-red-600 hover:underline text-sm">登出</button>
+      </div>
+    </div>
+
+    <div id="status" class="mb-4 text-sm text-slate-600"></div>
+
+    <!-- 遊戲設定 -->
+    <div class="bg-white rounded-xl shadow p-5 border mb-6">
+      <h2 class="font-bold text-lg text-amber-700 mb-3">遊戲設定（名稱等）</h2>
+      <div class="grid md:grid-cols-2 gap-3 text-sm">
+        <div>
+          <label class="block text-slate-500 mb-1">中文名稱（例如：長洲明信片）</label>
+          <input id="set-title" class="w-full border rounded px-3 py-2" placeholder="地理明信片">
+        </div>
+        <div>
+          <label class="block text-slate-500 mb-1">英文副標題</label>
+          <input id="set-subtitle" class="w-full border rounded px-3 py-2" placeholder="Geog Stamp Quest">
+        </div>
+        <div class="md:col-span-2">
+          <label class="block text-slate-500 mb-1">開頭說明文字</label>
+          <input id="set-description" class="w-full border rounded px-3 py-2" placeholder="第一身視角探索...">
+        </div>
+        <div>
+          <label class="block text-slate-500 mb-1">開頭 emoji</label>
+          <input id="set-emoji" class="w-full border rounded px-3 py-2" placeholder="🏝️">
+        </div>
+      </div>
+      <button id="btn-save-settings" class="mt-4 bg-amber-600 hover:bg-amber-500 text-white px-4 py-2 rounded-full text-sm">
+        <i class="fas fa-save mr-1"></i>儲存遊戲設定
+      </button>
+    </div>
+
+    <div class="mb-4 flex gap-3 flex-wrap">
+      <button id="btn-add-loc" class="bg-sky-600 hover:bg-sky-500 text-white px-4 py-2 rounded-full text-sm">
+        <i class="fas fa-plus mr-1"></i>新增景點
+      </button>
+      <button id="btn-save-all" class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-full text-sm">
+        <i class="fas fa-save mr-1"></i>儲存全部景點
+      </button>
+    </div>
+
+    <div id="locations-list" class="space-y-6"></div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyBgoiufpYsPF4EsqOCqVQWbg9RWLRhCltc",
+      authDomain: "cheung-chau-quest.firebaseapp.com",
+      projectId: "cheung-chau-quest",
+      storageBucket: "cheung-chau-quest.firebasestorage.app",
+      messagingSenderId: "1093724794704",
+      appId: "1:1093724794704:web:5aae4cdf6921644a9ac655"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    const ALLOWED_EMAILS = [
+      "anthonykwok@caritasfsc.edu.hk",
+      "thony.kwok.ai@gmail.com"
+    ];
+
+    let currentData = [];
+
+    document.getElementById('btn-login').onclick = () => {
+      const provider = new firebase.auth.GoogleAuthProvider();
+      auth.signInWithPopup(provider).catch(err => {
+        document.getElementById('login-error').textContent = err.message;
+        document.getElementById('login-error').classList.remove('hidden');
+      });
+    };
+    document.getElementById('btn-logout').onclick = () => auth.signOut();
+
+    auth.onAuthStateChanged(user => {
+      if (user) {
+        const email = (user.email || '').toLowerCase();
+        if (!ALLOWED_EMAILS.map(e => e.toLowerCase()).includes(email)) {
+          document.getElementById('login-error').textContent = '呢個帳號未獲授權';
+          document.getElementById('login-error').classList.remove('hidden');
+          auth.signOut();
+          return;
+        }
+        document.getElementById('login-screen').classList.add('hidden');
+        document.getElementById('admin-panel').classList.remove('hidden');
+        document.getElementById('user-email').textContent = user.email;
+        loadSettings();
+        loadData();
+      } else {
+        document.getElementById('login-screen').classList.remove('hidden');
+        document.getElementById('admin-panel').classList.add('hidden');
+      }
+    });
+
+    async function loadSettings() {
+      try {
+        const doc = await db.collection('config').doc('settings').get();
+        if (doc.exists) {
+          const s = doc.data();
+          document.getElementById('set-title').value = s.title || '';
+          document.getElementById('set-subtitle').value = s.subtitle || '';
+          document.getElementById('set-description').value = s.description || '';
+          document.getElementById('set-emoji').value = s.emoji || '';
+        }
+      } catch (e) {}
+    }
+
+    document.getElementById('btn-save-settings').onclick = async () => {
+      const status = document.getElementById('status');
+      status.textContent = '儲存設定中...';
+      try {
+        await db.collection('config').doc('settings').set({
+          title: document.getElementById('set-title').value.trim() || '地理明信片',
+          subtitle: document.getElementById('set-subtitle').value.trim() || 'Geog Stamp Quest',
+          description: document.getElementById('set-description').value.trim(),
+          emoji: document.getElementById('set-emoji').value.trim() || '🏝️'
+        });
+        status.textContent = '✅ 遊戲設定已儲存！重新整理遊戲即可見到新名稱。';
+      } catch (e) {
+        status.textContent = '儲存失敗：' + e.message;
+      }
+    };
+
+    async function loadData() {
+      const status = document.getElementById('status');
+      status.textContent = '載入景點中...';
+      try {
+        const snap = await db.collection('locations').orderBy('order').get();
+        if (snap.empty) {
+          status.textContent = '暫無景點，請新增';
+          currentData = [];
+        } else {
+          currentData = snap.docs.map(d => {
+            const data = d.data();
+            if (!data.quizzes && data.quizQ) {
+              data.quizzes = [{ title: data.quizTitle || '', q: data.quizQ, options: data.options || [], answer: data.answer ?? 0 }];
+            }
+            if (!data.quizzes) data.quizzes = [];
+            return { id: d.id, ...data };
+          });
+          status.textContent = `已載入 ${currentData.length} 個景點`;
+        }
+        renderList();
+      } catch (e) {
+        status.textContent = '載入失敗：' + e.message;
+      }
+    }
+
+    function escapeHtml(str) {
+      return String(str || '').replace(/&/g,'&').replace(/</g,'<').replace(/>/g,'>').replace(/"/g,'"');
+    }
+
+    function renderList() {
+      const container = document.getElementById('locations-list');
+      container.innerHTML = currentData.map((loc, i) => {
+        const quizzesHtml = (loc.quizzes || []).map((qz, qi) => `
+          <div class="border border-slate-200 rounded-lg p-3 mb-2 bg-slate-50" data-qi="${qi}">
+            <div class="flex justify-between items-center mb-2">
+              <span class="text-xs font-medium text-slate-500">問題 ${qi + 1}</span>
+              <button type="button" class="text-red-500 text-xs" onclick="removeQuiz(${i},${qi})">刪除</button>
+            </div>
+            <input class="w-full border rounded px-2 py-1.5 mb-1 text-sm" data-qfield="title" placeholder="任務標題" value="${escapeHtml(qz.title)}">
+            <input class="w-full border rounded px-2 py-1.5 mb-1 text-sm" data-qfield="q" placeholder="問題" value="${escapeHtml(qz.q)}">
+            <input class="w-full border rounded px-2 py-1.5 mb-1 text-sm" data-qfield="optionsStr" placeholder="選項（用 | 分隔）" value="${escapeHtml((qz.options||[]).join(' | '))}">
+            <input type="number" min="0" class="w-24 border rounded px-2 py-1.5 text-sm" data-qfield="answer" value="${qz.answer ?? 0}">
+            <span class="text-xs text-slate-400 ml-2">正確答案（0開始）</span>
+          </div>`).join('');
+
+        return `
+        <div class="bg-white rounded-xl shadow p-5 border" data-index="${i}">
+          <div class="flex justify-between items-center mb-3">
+            <h2 class="font-bold text-lg text-amber-700">景點 ${i + 1}</h2>
+            <button type="button" class="text-red-500 text-sm" onclick="removeLoc(${i})">刪除景點</button>
+          </div>
+          <div class="grid md:grid-cols-2 gap-3 text-sm mb-4">
+            <div><label class="block text-slate-500 mb-1">名稱</label>
+              <input class="w-full border rounded px-3 py-2" data-field="name" value="${escapeHtml(loc.name)}"></div>
+            <div><label class="block text-slate-500 mb-1">副標題</label>
+              <input class="w-full border rounded px-3 py-2" data-field="sub" value="${escapeHtml(loc.sub)}"></div>
+            <div class="md:col-span-2"><label class="block text-slate-500 mb-1">描述</label>
+              <textarea class="w-full border rounded px-3 py-2" rows="2" data-field="desc">${escapeHtml(loc.desc)}</textarea></div>
+            <div><label class="block text-slate-500 mb-1">緯度 lat</label>
+              <input type="number" step="any" class="w-full border rounded px-3 py-2" data-field="lat" value="${loc.lat || ''}"></div>
+            <div><label class="block text-slate-500 mb-1">經度 lng</label>
+              <input type="number" step="any" class="w-full border rounded px-3 py-2" data-field="lng" value="${loc.lng || ''}"></div>
+            <div><label class="block text-slate-500 mb-1">朝向 heading</label>
+              <input type="number" class="w-full border rounded px-3 py-2" data-field="heading" value="${loc.heading || 0}"></div>
+            <div><label class="block text-slate-500 mb-1">俯仰 pitch</label>
+              <input type="number" class="w-full border rounded px-3 py-2" data-field="pitch" value="${loc.pitch || 0}"></div>
+            <div><label class="block text-slate-500 mb-1">印章 emoji</label>
+              <input class="w-full border rounded px-3 py-2" data-field="stampEmoji" value="${escapeHtml(loc.stampEmoji)}"></div>
+            <div><label class="block text-slate-500 mb-1">印章名稱</label>
+              <input class="w-full border rounded px-3 py-2" data-field="stampName" value="${escapeHtml(loc.stampName)}"></div>
+          </div>
+          <div class="border-t pt-3">
+            <div class="flex justify-between items-center mb-2">
+              <span class="font-medium text-slate-700">問題列表</span>
+              <button type="button" class="text-sky-600 text-sm" onclick="addQuiz(${i})">+ 新增問題</button>
+            </div>
+            <div class="quizzes-container">${quizzesHtml || '<p class="text-sm text-slate-400">暫無問題</p>'}</div>
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    window.addQuiz = function(i) {
+      if (!currentData[i].quizzes) currentData[i].quizzes = [];
+      currentData[i].quizzes.push({ title: '', q: '', options: ['A','B','C','D'], answer: 0 });
+      collectFromDom(); renderList();
+    };
+    window.removeQuiz = function(i, qi) {
+      collectFromDom(); currentData[i].quizzes.splice(qi, 1); renderList();
+    };
+    window.removeLoc = function(i) {
+      if (!confirm('確定刪除？')) return;
+      collectFromDom(); currentData.splice(i, 1); renderList();
+    };
+
+    document.getElementById('btn-add-loc').onclick = () => {
+      collectFromDom();
+      currentData.push({
+        name: '新景點', sub: '', desc: '',
+        lat: 22.20, lng: 114.03, heading: 0, pitch: 0,
+        stampEmoji: '📍', stampName: '新景點',
+        quizzes: [{ title: '任務', q: '問題？', options: ['A','B','C','D'], answer: 0 }]
+      });
+      renderList();
+    };
+
+    function collectFromDom() {
+      document.querySelectorAll('#locations-list > div').forEach((card, i) => {
+        if (!currentData[i]) return;
+        const get = f => { const el = card.querySelector(`[data-field="${f}"]`); return el ? el.value : ''; };
+        currentData[i].name = get('name');
+        currentData[i].sub = get('sub');
+        currentData[i].desc = get('desc');
+        currentData[i].lat = parseFloat(get('lat')) || 0;
+        currentData[i].lng = parseFloat(get('lng')) || 0;
+        currentData[i].heading = parseFloat(get('heading')) || 0;
+        currentData[i].pitch = parseFloat(get('pitch')) || 0;
+        currentData[i].stampEmoji = get('stampEmoji');
+        currentData[i].stampName = get('stampName');
+        currentData[i].quizzes = [];
+        card.querySelectorAll('.quizzes-container > div[data-qi]').forEach(block => {
+          const getQ = f => { const el = block.querySelector(`[data-qfield="${f}"]`); return el ? el.value : ''; };
+          currentData[i].quizzes.push({
+            title: getQ('title'), q: getQ('q'),
+            options: getQ('optionsStr').split('|').map(s => s.trim()).filter(Boolean),
+            answer: parseInt(getQ('answer')) || 0
+          });
+        });
+      });
+    }
+
+    document.getElementById('btn-save-all').onclick = async () => {
+      collectFromDom();
+      const status = document.getElementById('status');
+      status.textContent = '儲存中...';
+      try {
+        const old = await db.collection('locations').get();
+        const batch = db.batch();
+        old.docs.forEach(d => batch.delete(d.ref));
+        currentData.forEach((loc, i) => {
+          batch.set(db.collection('locations').doc('loc' + i), {
+            order: i, name: loc.name, sub: loc.sub || `第 ${i+1} 站`,
+            desc: loc.desc, lat: loc.lat, lng: loc.lng,
+            heading: loc.heading, pitch: loc.pitch,
+            stampEmoji: loc.stampEmoji, stampName: loc.stampName,
+            quizzes: loc.quizzes || []
+          });
+        });
+        await batch.commit();
+        status.textContent = `✅ 已儲存 ${currentData.length} 個景點！`;
+        loadData();
+      } catch (e) {
+        status.textContent = '儲存失敗：' + e.message;
+      }
+    };
+  </script>
+</body>
+</html>
