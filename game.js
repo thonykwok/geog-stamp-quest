@@ -18,7 +18,7 @@ const defaultLocations = [
   {
     name: "示例景點 1", sub: "第 1 站",
     desc: "請在後台修改此景點資料。",
-    lat: 22.2086, lng: 114.0284, heading: 90, pitch: 0,
+    lat: 22.2086, lng: 114.0284, heading: 90, pitch: 0, zoom: 1,
     stampEmoji: "📍", stampName: "景點1",
     quizzes: [{ title: "任務", q: "這是示例問題？", options: ["選項A", "選項B", "選項C", "選項D"], answer: 0 }]
   }
@@ -82,13 +82,11 @@ async function loadFromFirestore() {
     if (typeof firebase === 'undefined') return;
     const db = firebase.firestore();
 
-    // Load settings
     const settingsDoc = await db.collection('config').doc('settings').get();
     if (settingsDoc.exists) {
       settings = { ...defaultSettings, ...settingsDoc.data() };
     }
 
-    // Load locations
     const snap = await db.collection('locations').orderBy('order').get();
     if (!snap.empty) {
       locations = snap.docs.map(d => {
@@ -100,7 +98,9 @@ async function loadFromFirestore() {
         if (!quizzes) quizzes = [];
         return {
           name: data.name, sub: data.sub || '', desc: data.desc || '',
-          lat: data.lat, lng: data.lng, heading: data.heading || 0, pitch: data.pitch || 0,
+          lat: data.lat, lng: data.lng,
+          heading: data.heading || 0, pitch: data.pitch || 0,
+          zoom: (data.zoom !== undefined && data.zoom !== null) ? Number(data.zoom) : 1,
           stampEmoji: data.stampEmoji || '📍', stampName: data.stampName || '',
           quizzes
         };
@@ -154,18 +154,22 @@ function loadLocation(i) {
   document.getElementById('loc-sub').textContent = loc.sub || `第 ${i + 1} / ${locations.length} 站`;
   document.getElementById('loc-desc').textContent = loc.desc;
 
+  const z = (loc.zoom !== undefined && loc.zoom !== null && !isNaN(Number(loc.zoom))) ? Number(loc.zoom) : 1;
+
   if (typeof google !== 'undefined' && google.maps) {
     const panoEl = document.getElementById('pano');
     if (!panorama) {
       panorama = new google.maps.StreetViewPanorama(panoEl, {
         position: { lat: loc.lat, lng: loc.lng },
         pov: { heading: loc.heading, pitch: loc.pitch || 0 },
-        zoom: 1, addressControl: false, linksControl: true, panControl: true,
+        zoom: z,
+        addressControl: false, linksControl: true, panControl: true,
         enableCloseButton: false, fullscreenControl: true
       });
     } else {
       panorama.setPosition({ lat: loc.lat, lng: loc.lng });
       panorama.setPov({ heading: loc.heading, pitch: loc.pitch || 0 });
+      panorama.setZoom(z);
     }
     updateMiniMap(loc);
   }
