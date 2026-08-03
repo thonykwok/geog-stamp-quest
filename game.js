@@ -29,10 +29,11 @@ let locations = defaultLocations;
 let current = 0;
 let collected = [];
 let currentQuizIndex = 0;
-let quizLocked = false; // 防止連撳跳題
+let quizLocked = false;
 let panorama = null;
 let miniMap = null;
 let miniMarker = null;
+let panoListenerAttached = false;
 
 function initPano() { console.log("Google Maps API loaded"); }
 
@@ -54,29 +55,47 @@ function applySettings() {
   document.getElementById('ending-title').textContent = `恭喜集齊 ${n} 個印！`;
 }
 
-function updateMiniMap(loc) {
-  if (typeof google === 'undefined' || !google.maps) return;
+function syncMiniMapToPos(pos, title) {
+  if (!pos || typeof google === 'undefined' || !google.maps) return;
+  const lat = typeof pos.lat === 'function' ? pos.lat() : Number(pos.lat);
+  const lng = typeof pos.lng === 'function' ? pos.lng() : Number(pos.lng);
+  if (isNaN(lat) || isNaN(lng)) return;
+  const p = { lat, lng };
+
   const el = document.getElementById('mini-map');
   if (!el) return;
-  const pos = { lat: Number(loc.lat), lng: Number(loc.lng) };
-  if (isNaN(pos.lat) || isNaN(pos.lng)) return;
 
   if (!miniMap) {
     miniMap = new google.maps.Map(el, {
-      center: pos, zoom: 15, mapTypeId: 'roadmap',
+      center: p, zoom: 15, mapTypeId: 'roadmap',
       disableDefaultUI: true, gestureHandling: 'none', keyboardShortcuts: false,
       clickableIcons: false, draggable: false, zoomControl: false,
       mapTypeControl: false, streetViewControl: false, fullscreenControl: false
     });
     window.miniMap = miniMap;
-    miniMarker = new google.maps.Marker({ position: pos, map: miniMap, title: loc.name });
-    setTimeout(() => { google.maps.event.trigger(miniMap, 'resize'); miniMap.setCenter(pos); }, 300);
+    miniMarker = new google.maps.Marker({ position: p, map: miniMap, title: title || '' });
+    setTimeout(() => { google.maps.event.trigger(miniMap, 'resize'); miniMap.setCenter(p); }, 300);
   } else {
-    miniMap.setCenter(pos);
-    miniMarker.setPosition(pos);
-    miniMarker.setTitle(loc.name);
-    google.maps.event.trigger(miniMap, 'resize');
+    miniMap.setCenter(p);
+    if (miniMarker) {
+      miniMarker.setPosition(p);
+      if (title) miniMarker.setTitle(title);
+    }
   }
+}
+
+function updateMiniMap(loc) {
+  syncMiniMapToPos({ lat: loc.lat, lng: loc.lng }, loc.name);
+}
+
+function attachPanoSync() {
+  if (!panorama || panoListenerAttached || typeof google === 'undefined') return;
+  panoListenerAttached = true;
+  // 街景向前／後行時同步小地圖
+  panorama.addListener('position_changed', function () {
+    const pos = panorama.getPosition();
+    if (pos) syncMiniMapToPos(pos);
+  });
 }
 
 async function loadFromFirestore() {
@@ -98,7 +117,6 @@ async function loadFromFirestore() {
           quizzes = [{ title: data.quizTitle || '任務', q: data.quizQ, options: data.options || [], answer: data.answer ?? 0 }];
         }
         if (!quizzes) quizzes = [];
-        // 正規化 answer 為數字
         quizzes = quizzes.map(qz => ({
           ...qz,
           answer: Number(qz.answer),
@@ -175,6 +193,7 @@ function loadLocation(i) {
         addressControl: false, linksControl: true, panControl: true,
         enableCloseButton: false, fullscreenControl: true
       });
+      attachPanoSync();
     } else {
       panorama.setPosition({ lat: loc.lat, lng: loc.lng });
       panorama.setPov({ heading: loc.heading, pitch: loc.pitch || 0 });
@@ -277,13 +296,11 @@ function checkAnswer(idx) {
 
     const isLast = currentQuizIndex >= quizzes.length - 1;
     if (!isLast) {
-      // 還有下一題，必須全部答完先有印
       setTimeout(() => {
         currentQuizIndex++;
         showCurrentQuiz();
       }, 900);
     } else {
-      // 呢個景點所有題都答對
       const total = quizzes.length;
       feedback.textContent = total > 1
         ? `✅ 全部 ${total} 題答對！印章已收集！`
@@ -297,7 +314,6 @@ function checkAnswer(idx) {
       }, 1200);
     }
   } else {
-    // 答錯：唔俾印、唔跳題，可以再試
     feedback.textContent = '❌ 不對嗎，再試試！';
     feedback.className = 'mt-4 text-center font-medium text-red-400';
   }
