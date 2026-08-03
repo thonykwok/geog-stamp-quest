@@ -14,7 +14,6 @@
 </head>
 <body class="bg-gradient-to-br from-slate-100 via-amber-50 to-slate-100 min-h-screen">
 
-  <!-- Login -->
   <div id="login-screen" class="fixed inset-0 flex items-center justify-center bg-slate-900/95 backdrop-blur">
     <div class="bg-white rounded-3xl p-10 shadow-2xl max-w-sm w-full mx-4 text-center">
       <div class="text-4xl mb-3">🗺️</div>
@@ -27,9 +26,7 @@
     </div>
   </div>
 
-  <!-- Admin -->
   <div id="admin-panel" class="hidden max-w-3xl mx-auto px-4 py-8">
-    <!-- Header -->
     <div class="flex justify-between items-start mb-8 flex-wrap gap-4">
       <div>
         <h1 class="text-2xl font-bold text-slate-800">後台管理</h1>
@@ -43,7 +40,6 @@
 
     <div id="status" class="mb-4 text-sm text-slate-600 min-h-[1.25rem]"></div>
 
-    <!-- Settings card -->
     <section class="card bg-white rounded-2xl border border-amber-100 p-6 mb-6 shadow-sm">
       <div class="flex items-center gap-2 mb-4">
         <span class="text-xl">⚙️</span>
@@ -52,7 +48,7 @@
       <div class="grid sm:grid-cols-2 gap-4 text-sm">
         <div>
           <label class="block text-slate-500 mb-1.5 font-medium">中文名稱</label>
-          <input id="set-title" class="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-amber-300 focus:border-amber-400 outline-none" placeholder="例如：長洲明信片">
+          <input id="set-title" class="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-amber-300 outline-none" placeholder="例如：長洲明信片">
         </div>
         <div>
           <label class="block text-slate-500 mb-1.5 font-medium">英文副標題</label>
@@ -72,7 +68,6 @@
       </button>
     </section>
 
-    <!-- Locations toolbar -->
     <div class="flex flex-wrap gap-3 mb-4 items-center justify-between">
       <h2 class="font-bold text-slate-700 flex items-center gap-2"><span>📍</span> 景點列表</h2>
       <div class="flex gap-2">
@@ -84,7 +79,7 @@
         </button>
       </div>
     </div>
-    <p class="text-xs text-slate-400 mb-4">用 ↑ ↓ 調整出現次序，儲存後遊戲會跟新次序顯示。</p>
+    <p class="text-xs text-slate-400 mb-4">用 ↑ ↓ 調整次序。視野 zoom：0＝最廣，約 1～2 常用，愈大愈放大。</p>
 
     <div id="locations-list" class="space-y-4"></div>
   </div>
@@ -181,6 +176,7 @@
             data.quizzes = [{ title: data.quizTitle || '', q: data.quizQ, options: data.options || [], answer: data.answer ?? 0 }];
           }
           if (!data.quizzes) data.quizzes = [];
+          if (data.zoom === undefined || data.zoom === null) data.zoom = 1;
           return { id: d.id, ...data };
         });
         status.textContent = currentData.length ? `已載入 ${currentData.length} 個景點` : '暫無景點，請新增';
@@ -240,10 +236,12 @@
               <input type="number" step="any" class="w-full border border-slate-200 rounded-xl px-3 py-2" data-field="lat" value="${loc.lat ?? ''}"></div>
             <div><label class="block text-slate-400 text-xs mb-1">經度 lng</label>
               <input type="number" step="any" class="w-full border border-slate-200 rounded-xl px-3 py-2" data-field="lng" value="${loc.lng ?? ''}"></div>
-            <div><label class="block text-slate-400 text-xs mb-1">朝向 heading</label>
+            <div><label class="block text-slate-400 text-xs mb-1">朝向 heading (0–360)</label>
               <input type="number" class="w-full border border-slate-200 rounded-xl px-3 py-2" data-field="heading" value="${loc.heading || 0}"></div>
             <div><label class="block text-slate-400 text-xs mb-1">俯仰 pitch</label>
               <input type="number" class="w-full border border-slate-200 rounded-xl px-3 py-2" data-field="pitch" value="${loc.pitch || 0}"></div>
+            <div><label class="block text-slate-400 text-xs mb-1">視野角度 zoom（0最廣，建議 0–3）</label>
+              <input type="number" step="0.1" min="0" max="5" class="w-full border border-slate-200 rounded-xl px-3 py-2" data-field="zoom" value="${loc.zoom ?? 1}"></div>
             <div><label class="block text-slate-400 text-xs mb-1">印章 emoji</label>
               <input class="w-full border border-slate-200 rounded-xl px-3 py-2" data-field="stampEmoji" value="${escapeHtml(loc.stampEmoji)}"></div>
             <div><label class="block text-slate-400 text-xs mb-1">印章名稱</label>
@@ -287,7 +285,7 @@
       collectFromDom();
       currentData.push({
         name: '新景點', sub: '', desc: '',
-        lat: 22.20, lng: 114.03, heading: 0, pitch: 0,
+        lat: 22.20, lng: 114.03, heading: 0, pitch: 0, zoom: 1,
         stampEmoji: '📍', stampName: '新景點',
         quizzes: [{ title: '任務', q: '問題？', options: ['A','B','C','D'], answer: 0 }]
       });
@@ -305,6 +303,8 @@
         currentData[i].lng = parseFloat(get('lng')) || 0;
         currentData[i].heading = parseFloat(get('heading')) || 0;
         currentData[i].pitch = parseFloat(get('pitch')) || 0;
+        currentData[i].zoom = parseFloat(get('zoom'));
+        if (isNaN(currentData[i].zoom)) currentData[i].zoom = 1;
         currentData[i].stampEmoji = get('stampEmoji');
         currentData[i].stampName = get('stampName');
         currentData[i].quizzes = [];
@@ -332,12 +332,13 @@
             order: i, name: loc.name, sub: loc.sub || `第 ${i+1} 站`,
             desc: loc.desc, lat: loc.lat, lng: loc.lng,
             heading: loc.heading, pitch: loc.pitch,
+            zoom: loc.zoom ?? 1,
             stampEmoji: loc.stampEmoji, stampName: loc.stampName,
             quizzes: loc.quizzes || []
           });
         });
         await batch.commit();
-        status.innerHTML = `<span class="text-emerald-600">✅ 已儲存 ${currentData.length} 個景點（次序已更新）</span>`;
+        status.innerHTML = `<span class="text-emerald-600">✅ 已儲存 ${currentData.length} 個景點</span>`;
         loadData();
       } catch (e) {
         status.textContent = '儲存失敗：' + e.message;
