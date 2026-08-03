@@ -32,7 +32,6 @@ let currentQuizIndex = 0;
 let panorama = null;
 let miniMap = null;
 let miniMarker = null;
-let miniMapExpanded = false;
 
 function initPano() { console.log("Google Maps API loaded"); }
 
@@ -68,6 +67,7 @@ function updateMiniMap(loc) {
       clickableIcons: false, draggable: false, zoomControl: false,
       mapTypeControl: false, streetViewControl: false, fullscreenControl: false
     });
+    window.miniMap = miniMap;
     miniMarker = new google.maps.Marker({ position: pos, map: miniMap, title: loc.name });
     setTimeout(() => { google.maps.event.trigger(miniMap, 'resize'); miniMap.setCenter(pos); }, 300);
   } else {
@@ -76,26 +76,6 @@ function updateMiniMap(loc) {
     miniMarker.setTitle(loc.name);
     google.maps.event.trigger(miniMap, 'resize');
   }
-}
-
-function toggleMiniMap() {
-  const wrap = document.getElementById('mini-map-wrap');
-  const icon = document.getElementById('mini-toggle-icon');
-  if (!wrap) return;
-  miniMapExpanded = !miniMapExpanded;
-  wrap.classList.toggle('expanded', miniMapExpanded);
-  if (icon) {
-    icon.className = miniMapExpanded ? 'fas fa-compress' : 'fas fa-expand';
-  }
-  // Google Map 需要 resize 先會正確重繪
-  setTimeout(() => {
-    if (miniMap && typeof google !== 'undefined') {
-      google.maps.event.trigger(miniMap, 'resize');
-      if (locations[current]) {
-        miniMap.setCenter({ lat: Number(locations[current].lat), lng: Number(locations[current].lng) });
-      }
-    }
-  }, 280);
 }
 
 async function loadFromFirestore() {
