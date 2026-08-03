@@ -45,7 +45,8 @@
       pointer-events: auto;
     }
     #mini-map-wrap.expanded #mini-map {
-      width: 280px; height: 280px;
+      width: min(380px, 85vw);
+      height: min(380px, 55vh);
     }
     #btn-mini-toggle {
       position: absolute; top: 4px; right: 4px;
@@ -65,7 +66,10 @@
     @media (max-width: 480px) {
       #mini-map-wrap { bottom: 68px; left: 8px; }
       #mini-map { width: 130px; height: 130px; }
-      #mini-map-wrap.expanded #mini-map { width: 230px; height: 230px; }
+      #mini-map-wrap.expanded #mini-map {
+        width: min(300px, 88vw);
+        height: min(300px, 50vh);
+      }
     }
   </style>
 </head>
@@ -170,7 +174,6 @@
   </div>
 
   <script>
-    // 小地圖放大／縮小（寫喺 index，避免 game.js 快取問題）
     window.miniMapExpanded = false;
     window.toggleMiniMap = function () {
       var wrap = document.getElementById('mini-map-wrap');
@@ -202,6 +205,6 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
   <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyC1ISPgkY3BsV7RM3BD41tPvewUPdOUJps&callback=initPano&v=weekly" async defer></script>
-  <script src="game.js?v=2"></script>
+  <script src="game.js?v=3"></script>
 </body>
 </html>
