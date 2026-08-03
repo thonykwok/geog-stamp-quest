@@ -6,70 +6,87 @@
   <title>後台管理 | Geog Stamp Quest</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
-  <style>body{font-family:system-ui,sans-serif}</style>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; }
+    .card { transition: box-shadow .2s; }
+    .card:hover { box-shadow: 0 8px 24px rgba(0,0,0,.08); }
+  </style>
 </head>
-<body class="bg-slate-100 min-h-screen">
+<body class="bg-gradient-to-br from-slate-100 via-amber-50 to-slate-100 min-h-screen">
 
-  <div id="login-screen" class="fixed inset-0 flex items-center justify-center bg-slate-900">
-    <div class="bg-white rounded-2xl p-8 shadow-xl max-w-sm w-full text-center">
-      <h1 class="text-2xl font-bold mb-2">Geog Stamp Quest 後台</h1>
-      <p class="text-slate-500 mb-6 text-sm">請用 @caritasfsc.edu.hk 電郵登入</p>
-      <button id="btn-login" class="bg-blue-600 hover:bg-blue-500 text-white font-medium px-6 py-3 rounded-full w-full flex items-center justify-center gap-2">
+  <!-- Login -->
+  <div id="login-screen" class="fixed inset-0 flex items-center justify-center bg-slate-900/95 backdrop-blur">
+    <div class="bg-white rounded-3xl p-10 shadow-2xl max-w-sm w-full mx-4 text-center">
+      <div class="text-4xl mb-3">🗺️</div>
+      <h1 class="text-2xl font-bold text-slate-800 mb-1">Geog Stamp Quest</h1>
+      <p class="text-slate-500 text-sm mb-8">後台管理 · 請用學校電郵登入</p>
+      <button id="btn-login" class="bg-blue-600 hover:bg-blue-500 text-white font-medium px-6 py-3.5 rounded-2xl w-full flex items-center justify-center gap-2 shadow-lg shadow-blue-200 transition">
         <i class="fab fa-google"></i> 用 Google 登入
       </button>
       <p id="login-error" class="text-red-500 text-sm mt-4 hidden"></p>
     </div>
   </div>
 
-  <div id="admin-panel" class="hidden max-w-4xl mx-auto p-4 md:p-8">
-    <div class="flex justify-between items-center mb-6 flex-wrap gap-3">
+  <!-- Admin -->
+  <div id="admin-panel" class="hidden max-w-3xl mx-auto px-4 py-8">
+    <!-- Header -->
+    <div class="flex justify-between items-start mb-8 flex-wrap gap-4">
       <div>
-        <h1 class="text-2xl font-bold">後台管理</h1>
-        <p class="text-sm text-slate-500">登入：<span id="user-email"></span></p>
+        <h1 class="text-2xl font-bold text-slate-800">後台管理</h1>
+        <p class="text-sm text-slate-500 mt-1">登入：<span id="user-email" class="text-slate-700"></span></p>
       </div>
-      <div class="flex gap-3 items-center">
-        <a href="index.html" class="text-sky-600 hover:underline text-sm">返回遊戲</a>
-        <button id="btn-logout" class="text-red-600 hover:underline text-sm">登出</button>
+      <div class="flex gap-4 items-center text-sm">
+        <a href="index.html" class="text-sky-600 hover:text-sky-700 font-medium">← 返回遊戲</a>
+        <button id="btn-logout" class="text-red-500 hover:text-red-600">登出</button>
       </div>
     </div>
 
-    <div id="status" class="mb-4 text-sm text-slate-600"></div>
+    <div id="status" class="mb-4 text-sm text-slate-600 min-h-[1.25rem]"></div>
 
-    <div class="bg-white rounded-xl shadow p-5 border mb-6">
-      <h2 class="font-bold text-lg text-amber-700 mb-3">遊戲設定（名稱等）</h2>
-      <div class="grid md:grid-cols-2 gap-3 text-sm">
+    <!-- Settings card -->
+    <section class="card bg-white rounded-2xl border border-amber-100 p-6 mb-6 shadow-sm">
+      <div class="flex items-center gap-2 mb-4">
+        <span class="text-xl">⚙️</span>
+        <h2 class="font-bold text-lg text-amber-800">遊戲設定</h2>
+      </div>
+      <div class="grid sm:grid-cols-2 gap-4 text-sm">
         <div>
-          <label class="block text-slate-500 mb-1">中文名稱（例如：長洲明信片）</label>
-          <input id="set-title" class="w-full border rounded px-3 py-2" placeholder="地理明信片">
+          <label class="block text-slate-500 mb-1.5 font-medium">中文名稱</label>
+          <input id="set-title" class="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-amber-300 focus:border-amber-400 outline-none" placeholder="例如：長洲明信片">
         </div>
         <div>
-          <label class="block text-slate-500 mb-1">英文副標題</label>
-          <input id="set-subtitle" class="w-full border rounded px-3 py-2" placeholder="Geog Stamp Quest">
+          <label class="block text-slate-500 mb-1.5 font-medium">英文副標題</label>
+          <input id="set-subtitle" class="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-amber-300 outline-none" placeholder="Geog Stamp Quest">
         </div>
-        <div class="md:col-span-2">
-          <label class="block text-slate-500 mb-1">開頭說明文字</label>
-          <input id="set-description" class="w-full border rounded px-3 py-2" placeholder="第一身視角探索...">
+        <div class="sm:col-span-2">
+          <label class="block text-slate-500 mb-1.5 font-medium">開頭說明</label>
+          <input id="set-description" class="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-amber-300 outline-none" placeholder="第一身視角探索...">
         </div>
         <div>
-          <label class="block text-slate-500 mb-1">開頭 emoji</label>
-          <input id="set-emoji" class="w-full border rounded px-3 py-2" placeholder="🏝️">
+          <label class="block text-slate-500 mb-1.5 font-medium">Emoji</label>
+          <input id="set-emoji" class="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-amber-300 outline-none" placeholder="🏝️">
         </div>
       </div>
-      <button id="btn-save-settings" class="mt-4 bg-amber-600 hover:bg-amber-500 text-white px-4 py-2 rounded-full text-sm">
-        <i class="fas fa-save mr-1"></i>儲存遊戲設定
+      <button id="btn-save-settings" class="mt-5 bg-amber-500 hover:bg-amber-400 text-white font-medium px-5 py-2.5 rounded-xl text-sm shadow-sm transition">
+        <i class="fas fa-save mr-1.5"></i>儲存設定
       </button>
-    </div>
+    </section>
 
-    <div class="mb-4 flex gap-3 flex-wrap">
-      <button id="btn-add-loc" class="bg-sky-600 hover:bg-sky-500 text-white px-4 py-2 rounded-full text-sm">
-        <i class="fas fa-plus mr-1"></i>新增景點
-      </button>
-      <button id="btn-save-all" class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-full text-sm">
-        <i class="fas fa-save mr-1"></i>儲存全部景點
-      </button>
+    <!-- Locations toolbar -->
+    <div class="flex flex-wrap gap-3 mb-4 items-center justify-between">
+      <h2 class="font-bold text-slate-700 flex items-center gap-2"><span>📍</span> 景點列表</h2>
+      <div class="flex gap-2">
+        <button id="btn-add-loc" class="bg-sky-500 hover:bg-sky-400 text-white px-4 py-2 rounded-xl text-sm font-medium shadow-sm transition">
+          <i class="fas fa-plus mr-1"></i>新增
+        </button>
+        <button id="btn-save-all" class="bg-emerald-500 hover:bg-emerald-400 text-white px-4 py-2 rounded-xl text-sm font-medium shadow-sm transition">
+          <i class="fas fa-save mr-1"></i>儲存全部
+        </button>
+      </div>
     </div>
+    <p class="text-xs text-slate-400 mb-4">用 ↑ ↓ 調整出現次序，儲存後遊戲會跟新次序顯示。</p>
 
-    <div id="locations-list" class="space-y-6"></div>
+    <div id="locations-list" class="space-y-4"></div>
   </div>
 
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -88,7 +105,6 @@
     const auth = firebase.auth();
     const db = firebase.firestore();
 
-    // 所有 @caritasfsc.edu.hk + 額外指定電郵
     const EXTRA_ALLOWED = ["thony.kwok.ai@gmail.com"];
     function isAllowedEmail(email) {
       email = (email || "").toLowerCase();
@@ -99,8 +115,7 @@
     let currentData = [];
 
     document.getElementById('btn-login').onclick = () => {
-      const provider = new firebase.auth.GoogleAuthProvider();
-      auth.signInWithPopup(provider).catch(err => {
+      auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()).catch(err => {
         document.getElementById('login-error').textContent = err.message;
         document.getElementById('login-error').classList.remove('hidden');
       });
@@ -109,9 +124,8 @@
 
     auth.onAuthStateChanged(user => {
       if (user) {
-        const email = (user.email || '').toLowerCase();
-        if (!isAllowedEmail(email)) {
-          document.getElementById('login-error').textContent = '呢個帳號未獲授權（需 @caritasfsc.edu.hk）';
+        if (!isAllowedEmail(user.email)) {
+          document.getElementById('login-error').textContent = '未獲授權（需 @caritasfsc.edu.hk）';
           document.getElementById('login-error').classList.remove('hidden');
           auth.signOut();
           return;
@@ -150,31 +164,26 @@
           description: document.getElementById('set-description').value.trim(),
           emoji: document.getElementById('set-emoji').value.trim() || '🏝️'
         });
-        status.textContent = '✅ 遊戲設定已儲存！重新整理遊戲即可見到新名稱。';
+        status.innerHTML = '<span class="text-emerald-600">✅ 遊戲設定已儲存</span>';
       } catch (e) {
-        status.textContent = '儲存失敗：' + e.message;
+        status.textContent = '失敗：' + e.message;
       }
     };
 
     async function loadData() {
       const status = document.getElementById('status');
-      status.textContent = '載入景點中...';
+      status.textContent = '載入中...';
       try {
         const snap = await db.collection('locations').orderBy('order').get();
-        if (snap.empty) {
-          status.textContent = '暫無景點，請新增';
-          currentData = [];
-        } else {
-          currentData = snap.docs.map(d => {
-            const data = d.data();
-            if (!data.quizzes && data.quizQ) {
-              data.quizzes = [{ title: data.quizTitle || '', q: data.quizQ, options: data.options || [], answer: data.answer ?? 0 }];
-            }
-            if (!data.quizzes) data.quizzes = [];
-            return { id: d.id, ...data };
-          });
-          status.textContent = `已載入 ${currentData.length} 個景點`;
-        }
+        currentData = snap.empty ? [] : snap.docs.map(d => {
+          const data = d.data();
+          if (!data.quizzes && data.quizQ) {
+            data.quizzes = [{ title: data.quizTitle || '', q: data.quizQ, options: data.options || [], answer: data.answer ?? 0 }];
+          }
+          if (!data.quizzes) data.quizzes = [];
+          return { id: d.id, ...data };
+        });
+        status.textContent = currentData.length ? `已載入 ${currentData.length} 個景點` : '暫無景點，請新增';
         renderList();
       } catch (e) {
         status.textContent = '載入失敗：' + e.message;
@@ -187,56 +196,79 @@
 
     function renderList() {
       const container = document.getElementById('locations-list');
+      if (!currentData.length) {
+        container.innerHTML = '<div class="text-center text-slate-400 py-12 bg-white rounded-2xl border border-dashed">尚未有景點</div>';
+        return;
+      }
       container.innerHTML = currentData.map((loc, i) => {
         const quizzesHtml = (loc.quizzes || []).map((qz, qi) => `
-          <div class="border border-slate-200 rounded-lg p-3 mb-2 bg-slate-50" data-qi="${qi}">
+          <div class="bg-slate-50 rounded-xl p-3 mb-2 border border-slate-100" data-qi="${qi}">
             <div class="flex justify-between items-center mb-2">
-              <span class="text-xs font-medium text-slate-500">問題 ${qi + 1}</span>
-              <button type="button" class="text-red-500 text-xs" onclick="removeQuiz(${i},${qi})">刪除</button>
+              <span class="text-xs font-semibold text-slate-400">問題 ${qi + 1}</span>
+              <button type="button" class="text-red-400 hover:text-red-600 text-xs" onclick="removeQuiz(${i},${qi})"><i class="fas fa-trash"></i></button>
             </div>
-            <input class="w-full border rounded px-2 py-1.5 mb-1 text-sm" data-qfield="title" placeholder="任務標題" value="${escapeHtml(qz.title)}">
-            <input class="w-full border rounded px-2 py-1.5 mb-1 text-sm" data-qfield="q" placeholder="問題" value="${escapeHtml(qz.q)}">
-            <input class="w-full border rounded px-2 py-1.5 mb-1 text-sm" data-qfield="optionsStr" placeholder="選項（用 | 分隔）" value="${escapeHtml((qz.options||[]).join(' | '))}">
-            <input type="number" min="0" class="w-24 border rounded px-2 py-1.5 text-sm" data-qfield="answer" value="${qz.answer ?? 0}">
-            <span class="text-xs text-slate-400 ml-2">正確答案（0開始）</span>
+            <input class="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 mb-1.5 text-sm" data-qfield="title" placeholder="任務標題" value="${escapeHtml(qz.title)}">
+            <input class="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 mb-1.5 text-sm" data-qfield="q" placeholder="問題內容" value="${escapeHtml(qz.q)}">
+            <input class="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 mb-1.5 text-sm" data-qfield="optionsStr" placeholder="選項用 | 分隔" value="${escapeHtml((qz.options||[]).join(' | '))}">
+            <div class="flex items-center gap-2">
+              <input type="number" min="0" class="w-20 border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm" data-qfield="answer" value="${qz.answer ?? 0}">
+              <span class="text-xs text-slate-400">正確答案（0 開始）</span>
+            </div>
           </div>`).join('');
 
         return `
-        <div class="bg-white rounded-xl shadow p-5 border" data-index="${i}">
-          <div class="flex justify-between items-center mb-3">
-            <h2 class="font-bold text-lg text-amber-700">景點 ${i + 1}</h2>
-            <button type="button" class="text-red-500 text-sm" onclick="removeLoc(${i})">刪除景點</button>
-          </div>
-          <div class="grid md:grid-cols-2 gap-3 text-sm mb-4">
-            <div><label class="block text-slate-500 mb-1">名稱</label>
-              <input class="w-full border rounded px-3 py-2" data-field="name" value="${escapeHtml(loc.name)}"></div>
-            <div><label class="block text-slate-500 mb-1">副標題</label>
-              <input class="w-full border rounded px-3 py-2" data-field="sub" value="${escapeHtml(loc.sub)}"></div>
-            <div class="md:col-span-2"><label class="block text-slate-500 mb-1">描述</label>
-              <textarea class="w-full border rounded px-3 py-2" rows="2" data-field="desc">${escapeHtml(loc.desc)}</textarea></div>
-            <div><label class="block text-slate-500 mb-1">緯度 lat</label>
-              <input type="number" step="any" class="w-full border rounded px-3 py-2" data-field="lat" value="${loc.lat || ''}"></div>
-            <div><label class="block text-slate-500 mb-1">經度 lng</label>
-              <input type="number" step="any" class="w-full border rounded px-3 py-2" data-field="lng" value="${loc.lng || ''}"></div>
-            <div><label class="block text-slate-500 mb-1">朝向 heading</label>
-              <input type="number" class="w-full border rounded px-3 py-2" data-field="heading" value="${loc.heading || 0}"></div>
-            <div><label class="block text-slate-500 mb-1">俯仰 pitch</label>
-              <input type="number" class="w-full border rounded px-3 py-2" data-field="pitch" value="${loc.pitch || 0}"></div>
-            <div><label class="block text-slate-500 mb-1">印章 emoji</label>
-              <input class="w-full border rounded px-3 py-2" data-field="stampEmoji" value="${escapeHtml(loc.stampEmoji)}"></div>
-            <div><label class="block text-slate-500 mb-1">印章名稱</label>
-              <input class="w-full border rounded px-3 py-2" data-field="stampName" value="${escapeHtml(loc.stampName)}"></div>
-          </div>
-          <div class="border-t pt-3">
-            <div class="flex justify-between items-center mb-2">
-              <span class="font-medium text-slate-700">問題列表</span>
-              <button type="button" class="text-sky-600 text-sm" onclick="addQuiz(${i})">+ 新增問題</button>
+        <div class="card bg-white rounded-2xl border border-slate-100 p-5 shadow-sm" data-index="${i}">
+          <div class="flex justify-between items-center mb-4 gap-2 flex-wrap">
+            <div class="flex items-center gap-2">
+              <span class="bg-amber-100 text-amber-800 text-xs font-bold px-2.5 py-1 rounded-full">#${i + 1}</span>
+              <h3 class="font-bold text-slate-800">景點 ${i + 1}</h3>
             </div>
-            <div class="quizzes-container">${quizzesHtml || '<p class="text-sm text-slate-400">暫無問題</p>'}</div>
+            <div class="flex items-center gap-1">
+              <button type="button" title="上移" class="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 disabled:opacity-30" ${i===0?'disabled':''} onclick="moveLoc(${i},-1)"><i class="fas fa-arrow-up"></i></button>
+              <button type="button" title="下移" class="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 disabled:opacity-30" ${i===currentData.length-1?'disabled':''} onclick="moveLoc(${i},1)"><i class="fas fa-arrow-down"></i></button>
+              <button type="button" class="w-8 h-8 rounded-lg bg-red-50 hover:bg-red-100 text-red-500 ml-1" onclick="removeLoc(${i})"><i class="fas fa-trash"></i></button>
+            </div>
+          </div>
+          <div class="grid sm:grid-cols-2 gap-3 text-sm mb-4">
+            <div><label class="block text-slate-400 text-xs mb-1">名稱</label>
+              <input class="w-full border border-slate-200 rounded-xl px-3 py-2" data-field="name" value="${escapeHtml(loc.name)}"></div>
+            <div><label class="block text-slate-400 text-xs mb-1">副標題</label>
+              <input class="w-full border border-slate-200 rounded-xl px-3 py-2" data-field="sub" value="${escapeHtml(loc.sub)}"></div>
+            <div class="sm:col-span-2"><label class="block text-slate-400 text-xs mb-1">描述</label>
+              <textarea class="w-full border border-slate-200 rounded-xl px-3 py-2" rows="2" data-field="desc">${escapeHtml(loc.desc)}</textarea></div>
+            <div><label class="block text-slate-400 text-xs mb-1">緯度 lat</label>
+              <input type="number" step="any" class="w-full border border-slate-200 rounded-xl px-3 py-2" data-field="lat" value="${loc.lat ?? ''}"></div>
+            <div><label class="block text-slate-400 text-xs mb-1">經度 lng</label>
+              <input type="number" step="any" class="w-full border border-slate-200 rounded-xl px-3 py-2" data-field="lng" value="${loc.lng ?? ''}"></div>
+            <div><label class="block text-slate-400 text-xs mb-1">朝向 heading</label>
+              <input type="number" class="w-full border border-slate-200 rounded-xl px-3 py-2" data-field="heading" value="${loc.heading || 0}"></div>
+            <div><label class="block text-slate-400 text-xs mb-1">俯仰 pitch</label>
+              <input type="number" class="w-full border border-slate-200 rounded-xl px-3 py-2" data-field="pitch" value="${loc.pitch || 0}"></div>
+            <div><label class="block text-slate-400 text-xs mb-1">印章 emoji</label>
+              <input class="w-full border border-slate-200 rounded-xl px-3 py-2" data-field="stampEmoji" value="${escapeHtml(loc.stampEmoji)}"></div>
+            <div><label class="block text-slate-400 text-xs mb-1">印章名稱</label>
+              <input class="w-full border border-slate-200 rounded-xl px-3 py-2" data-field="stampName" value="${escapeHtml(loc.stampName)}"></div>
+          </div>
+          <div class="border-t border-slate-100 pt-3">
+            <div class="flex justify-between items-center mb-2">
+              <span class="text-sm font-medium text-slate-600">問題</span>
+              <button type="button" class="text-sky-500 hover:text-sky-600 text-sm font-medium" onclick="addQuiz(${i})"><i class="fas fa-plus mr-1"></i>新增問題</button>
+            </div>
+            <div class="quizzes-container">${quizzesHtml || '<p class="text-sm text-slate-300 py-2">暫無問題</p>'}</div>
           </div>
         </div>`;
       }).join('');
     }
+
+    window.moveLoc = function(i, dir) {
+      collectFromDom();
+      const j = i + dir;
+      if (j < 0 || j >= currentData.length) return;
+      const tmp = currentData[i];
+      currentData[i] = currentData[j];
+      currentData[j] = tmp;
+      renderList();
+    };
 
     window.addQuiz = function(i) {
       if (!currentData[i].quizzes) currentData[i].quizzes = [];
@@ -247,7 +279,7 @@
       collectFromDom(); currentData[i].quizzes.splice(qi, 1); renderList();
     };
     window.removeLoc = function(i) {
-      if (!confirm('確定刪除？')) return;
+      if (!confirm('確定刪除呢個景點？')) return;
       collectFromDom(); currentData.splice(i, 1); renderList();
     };
 
@@ -263,7 +295,7 @@
     };
 
     function collectFromDom() {
-      document.querySelectorAll('#locations-list > div').forEach((card, i) => {
+      document.querySelectorAll('#locations-list > div[data-index]').forEach((card, i) => {
         if (!currentData[i]) return;
         const get = f => { const el = card.querySelector(`[data-field="${f}"]`); return el ? el.value : ''; };
         currentData[i].name = get('name');
@@ -305,7 +337,7 @@
           });
         });
         await batch.commit();
-        status.textContent = `✅ 已儲存 ${currentData.length} 個景點！`;
+        status.innerHTML = `<span class="text-emerald-600">✅ 已儲存 ${currentData.length} 個景點（次序已更新）</span>`;
         loadData();
       } catch (e) {
         status.textContent = '儲存失敗：' + e.message;
