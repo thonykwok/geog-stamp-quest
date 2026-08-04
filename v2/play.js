@@ -54,7 +54,6 @@
     var txtQuiz = (settings && settings.txtQuiz) || '開始任務';
     var txtDone = (settings && settings.txtDone) || '已完成';
 
-    // Quiz button
     quizBtn.classList.remove('btn-glow', 'btn-glow-amber', 'btn-done', 'btn-idle');
     if (done) {
       quizBtn.classList.add('btn-done');
@@ -66,7 +65,6 @@
       quizBtn.disabled = false;
     }
 
-    // Next button: glow only when current station is done and not last
     nextBtn.classList.remove('btn-glow', 'btn-glow-sky', 'btn-idle', 'btn-done');
     nextBtn.disabled = atEnd;
     if (!atEnd && done) {
@@ -76,6 +74,65 @@
     }
 
     if (prevBtn) prevBtn.disabled = current <= 0;
+  }
+
+  function spawnConfetti() {
+    var layer = document.getElementById('confetti-layer');
+    if (!layer) return;
+    layer.innerHTML = '';
+    var colors = ['#f59e0b', '#fbbf24', '#34d399', '#38bdf8', '#f472b6', '#a78bfa', '#ffffff'];
+    for (var i = 0; i < 48; i++) {
+      var p = document.createElement('div');
+      p.className = 'confetti-piece';
+      p.style.left = Math.random() * 100 + '%';
+      p.style.background = colors[i % colors.length];
+      p.style.animationDuration = (2.2 + Math.random() * 2.5) + 's';
+      p.style.animationDelay = (Math.random() * 0.8) + 's';
+      p.style.width = (6 + Math.random() * 8) + 'px';
+      p.style.height = (8 + Math.random() * 10) + 'px';
+      p.style.opacity = '0.9';
+      layer.appendChild(p);
+    }
+  }
+
+  function showEnding() {
+    var n = locations.length;
+    var titleTpl = (settings.endingTitle || '恭喜集齊 {n} 個印！').replace('{n}', String(n));
+    var desc = settings.endingDesc || '你已經完成探索！明信片已經蓋滿印章。';
+    var pTitle = settings.postcardTitle || settings.landingTitle || '地理明信片';
+    var replay = settings.txtReplay || '再玩一次';
+
+    var titleEl = document.getElementById('ending-title');
+    var descEl = document.getElementById('ending-desc');
+    var pTitleEl = document.getElementById('ending-postcard-title');
+    var replayBtn = document.getElementById('btn-replay');
+    if (titleEl) titleEl.textContent = titleTpl;
+    if (descEl) descEl.textContent = desc;
+    if (pTitleEl) pTitleEl.textContent = pTitle;
+    if (replayBtn) replayBtn.textContent = replay;
+
+    var grid = document.getElementById('ending-stamp-grid');
+    if (grid) {
+      grid.innerHTML = locations.map(function (loc) {
+        return '<div class="ending-stamp stamp collected text-center p-2 rounded-lg bg-amber-100">' +
+          '<div class="text-2xl">' + (loc.stampEmoji || '📍') + '</div>' +
+          '<div class="text-xs text-amber-900 mt-1">' + (loc.stampName || loc.name) + '</div></div>';
+      }).join('');
+    }
+
+    var ending = document.getElementById('ending');
+    ending.classList.remove('hidden');
+    ending.classList.add('flex');
+
+    spawnConfetti();
+
+    // Stamp pop one by one
+    var stamps = grid ? grid.querySelectorAll('.ending-stamp') : [];
+    stamps.forEach(function (el, i) {
+      setTimeout(function () {
+        el.classList.add('show');
+      }, 400 + i * 180);
+    });
   }
 
   window.initPano = function () {
@@ -346,10 +403,7 @@
               fb.innerHTML = '<span class="text-emerald-400">全部答對！印章已收集！</span>';
               setTimeout(function () {
                 closeQuiz();
-                if (collected.every(Boolean)) {
-                  document.getElementById('ending').classList.remove('hidden');
-                  document.getElementById('ending').classList.add('flex');
-                }
+                if (collected.every(Boolean)) showEnding();
               }, 900);
             }
           }, 600);
