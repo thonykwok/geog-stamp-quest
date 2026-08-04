@@ -33,12 +33,10 @@
     #pano { width: 100%; height: 100%; }
     #mini-map-wrap {
       position: absolute; bottom: 72px; left: 12px;
-      z-index: 30;
-      pointer-events: none;
+      z-index: 30; pointer-events: none;
     }
     #mini-map {
-      width: 160px; height: 160px;
-      border-radius: 12px; overflow: hidden;
+      width: 160px; height: 160px; border-radius: 12px; overflow: hidden;
       box-shadow: 0 4px 20px rgba(0,0,0,0.55);
       border: 2px solid rgba(255,255,255,0.5);
       background: #e2e8f0;
@@ -46,21 +44,15 @@
       pointer-events: auto;
     }
     #mini-map-wrap.expanded #mini-map {
-      width: min(380px, 85vw);
-      height: min(380px, 55vh);
+      width: min(380px, 85vw); height: min(380px, 55vh);
     }
     #btn-mini-toggle {
       position: absolute; top: 4px; right: 4px;
-      width: 32px; height: 32px;
-      border-radius: 8px;
-      background: rgba(15,23,42,0.85);
-      color: white;
-      border: 1px solid rgba(255,255,255,0.35);
-      font-size: 13px;
+      width: 32px; height: 32px; border-radius: 8px;
+      background: rgba(15,23,42,0.85); color: white;
+      border: 1px solid rgba(255,255,255,0.35); font-size: 13px;
       display: flex; align-items: center; justify-content: center;
-      cursor: pointer;
-      z-index: 40;
-      pointer-events: auto;
+      cursor: pointer; z-index: 40; pointer-events: auto;
       -webkit-tap-highlight-color: transparent;
     }
     #btn-mini-toggle:active { transform: scale(0.92); }
@@ -68,8 +60,7 @@
       #mini-map-wrap { bottom: 68px; left: 8px; }
       #mini-map { width: 130px; height: 130px; }
       #mini-map-wrap.expanded #mini-map {
-        width: min(300px, 88vw);
-        height: min(300px, 50vh);
+        width: min(300px, 88vw); height: min(300px, 50vh);
       }
     }
   </style>
@@ -82,10 +73,10 @@
       <h1 id="landing-title" class="text-4xl md:text-5xl font-bold mb-3 tracking-tight">地理明信片</h1>
       <p id="landing-subtitle" class="text-xl text-sky-200 mb-2">Geog Stamp Quest</p>
       <p id="landing-desc" class="text-slate-300 mb-8 leading-relaxed">第一身視角探索，完成任務，集齊明信片上的印章！</p>
-      <button onclick="startGame()" class="bg-amber-500 hover:bg-amber-400 text-slate-900 font-bold text-lg px-10 py-4 rounded-full shadow-lg transition transform hover:scale-105 active:scale-95">
-        開始冒險 <i class="fas fa-arrow-right ml-2"></i>
+      <button onclick="startGame()" id="btn-start" class="bg-amber-500 hover:bg-amber-400 text-slate-900 font-bold text-lg px-10 py-4 rounded-full shadow-lg transition transform hover:scale-105 active:scale-95">
+        <span id="txt-start">開始冒險</span> <i class="fas fa-arrow-right ml-2"></i>
       </button>
-      <p class="mt-6 text-sm text-slate-400">真正 Google 街景 360° • 建議用手機或平板玩</p>
+      <p id="landing-footer" class="mt-6 text-sm text-slate-400">真正 Google 街景 360° • 建議用手機或平板玩</p>
     </div>
   </div>
 
@@ -100,7 +91,7 @@
       </div>
       <button onclick="togglePostcard()" class="relative bg-amber-600 hover:bg-amber-500 px-4 py-2 rounded-full font-medium text-sm flex items-center gap-2">
         <i class="fas fa-envelope-open-text"></i>
-        <span>明信片</span>
+        <span id="txt-postcard">明信片</span>
         <span id="stamp-count" class="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">0</span>
       </button>
     </header>
@@ -109,23 +100,21 @@
 
     <div id="map-container">
       <div id="pano"></div>
-
       <div id="mini-map-wrap">
         <button type="button" id="btn-mini-toggle" title="放大／縮小地圖">
           <i class="fas fa-expand" id="mini-toggle-icon"></i>
         </button>
         <div id="mini-map"></div>
       </div>
-
       <div class="absolute bottom-4 left-0 right-0 flex justify-center gap-3 px-4 z-10">
         <button onclick="prevLocation()" id="btn-prev" class="bg-black/70 hover:bg-black/90 text-white px-4 py-2.5 rounded-full backdrop-blur disabled:opacity-30 text-sm">
-          <i class="fas fa-chevron-left"></i> 上一站
+          <i class="fas fa-chevron-left"></i> <span id="txt-prev">上一站</span>
         </button>
         <button onclick="startQuiz()" id="btn-quiz" class="bg-amber-500 hover:bg-amber-400 text-slate-900 font-bold px-5 py-2.5 rounded-full shadow-lg text-sm">
-          <i class="fas fa-question-circle"></i> 開始任務
+          <i class="fas fa-question-circle"></i> <span id="txt-quiz">開始任務</span>
         </button>
         <button onclick="nextLocation()" id="btn-next" class="bg-black/70 hover:bg-black/90 text-white px-4 py-2.5 rounded-full backdrop-blur text-sm">
-          下一站 <i class="fas fa-chevron-right"></i>
+          <span id="txt-next">下一站</span> <i class="fas fa-chevron-right"></i>
         </button>
       </div>
     </div>
@@ -160,14 +149,14 @@
   <div id="ending" class="fixed inset-0 z-50 hidden flex-col items-center justify-center bg-gradient-to-b from-amber-900 via-orange-800 to-slate-900 p-6 text-center">
     <div class="text-6xl mb-4">🎉</div>
     <h2 id="ending-title" class="text-3xl font-bold mb-3">恭喜集齊所有印！</h2>
-    <p class="text-amber-100 mb-6 max-w-md">你已經完成探索！明信片已經蓋滿印章，可以帶回家留念啦。</p>
-    <button onclick="location.reload()" class="bg-white text-amber-900 font-bold px-8 py-3 rounded-full hover:bg-amber-100 transition">再玩一次</button>
+    <p id="ending-desc" class="text-amber-100 mb-6 max-w-md">你已經完成探索！明信片已經蓋滿印章，可以帶回家留念啦。</p>
+    <button onclick="location.reload()" id="btn-replay" class="bg-white text-amber-900 font-bold px-8 py-3 rounded-full hover:bg-amber-100 transition">再玩一次</button>
   </div>
 
   <div id="map-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/70 p-4">
     <div class="bg-slate-800 rounded-2xl max-w-md w-full p-5">
       <div class="flex justify-between mb-4">
-        <h3 class="font-bold text-lg">景點地圖</h3>
+        <h3 id="map-title" class="font-bold text-lg">景點地圖</h3>
         <button onclick="document.getElementById('map-modal').classList.add('hidden');document.getElementById('map-modal').classList.remove('flex')" class="text-slate-400"><i class="fas fa-times"></i></button>
       </div>
       <div id="map-list" class="space-y-2 text-sm"></div>
@@ -183,9 +172,7 @@
       window.miniMapExpanded = !window.miniMapExpanded;
       if (window.miniMapExpanded) wrap.classList.add('expanded');
       else wrap.classList.remove('expanded');
-      if (icon) {
-        icon.className = window.miniMapExpanded ? 'fas fa-compress' : 'fas fa-expand';
-      }
+      if (icon) icon.className = window.miniMapExpanded ? 'fas fa-compress' : 'fas fa-expand';
       setTimeout(function () {
         if (typeof google !== 'undefined' && window.miniMap) {
           google.maps.event.trigger(window.miniMap, 'resize');
@@ -196,8 +183,7 @@
       var btn = document.getElementById('btn-mini-toggle');
       if (btn) {
         btn.addEventListener('click', function (e) {
-          e.preventDefault();
-          e.stopPropagation();
+          e.preventDefault(); e.stopPropagation();
           window.toggleMiniMap();
         });
       }
@@ -206,6 +192,6 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
   <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyC1ISPgkY3BsV7RM3BD41tPvewUPdOUJps&callback=initPano&v=weekly" async defer></script>
-  <script src="game.js?v=5"></script>
+  <script src="game.js?v=6"></script>
 </body>
 </html>
