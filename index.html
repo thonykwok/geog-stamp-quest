@@ -26,8 +26,15 @@
     #btn-mini-toggle { position: absolute; top: 4px; right: 4px; width: 32px; height: 32px; border-radius: 8px; background: rgba(15,23,42,0.85); color: white; border: 1px solid rgba(255,255,255,0.35); font-size: 13px; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 40; pointer-events: auto; -webkit-tap-highlight-color: transparent; }
     #btn-mini-toggle:active { transform: scale(0.92); }
     @media (max-width: 480px) { #mini-map-wrap { bottom: 68px; left: 8px; } #mini-map { width: 130px; height: 130px; } #mini-map-wrap.expanded #mini-map { width: min(300px, 88vw); height: min(300px, 50vh); } }
-    #media-stage { width: 100%; max-width: 960px; aspect-ratio: 16 / 9; background: #000; border-radius: 12px; overflow: hidden; position: relative; }
-    #media-stage img, #media-stage iframe { width: 100%; height: 100%; object-fit: contain; border: 0; }
+    /* Fullscreen intro media */
+    #intro-modal { position: fixed; inset: 0; z-index: 60; background: #000; }
+    #intro-modal.flex { display: flex; flex-direction: column; }
+    #intro-shell { position: relative; flex: 1; width: 100%; height: 100%; min-height: 100vh; min-height: 100dvh; }
+    #media-stage { position: absolute; inset: 0; width: 100%; height: 100%; background: #000; border-radius: 0; overflow: hidden; }
+    #media-stage img, #media-stage iframe { width: 100%; height: 100%; object-fit: contain; border: 0; background: #000; }
+    #intro-controls { position: absolute; left: 0; right: 0; bottom: 0; z-index: 10; display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 16px 16px calc(16px + env(safe-area-inset-bottom, 0px)); background: linear-gradient(to top, rgba(0,0,0,0.75), rgba(0,0,0,0.35), transparent); pointer-events: none; }
+    #intro-controls > * { pointer-events: auto; }
+    #intro-counter { color: rgba(255,255,255,0.85); font-size: 13px; text-shadow: 0 1px 3px rgba(0,0,0,0.8); }
     #landing-media-wrap, #ending-media-wrap { width: 100%; max-width: 560px; margin: 0 auto 1.25rem; aspect-ratio: 16 / 9; border-radius: 12px; overflow: hidden; background: #000; }
     #landing-media-wrap img, #landing-media-wrap iframe, #ending-media-wrap img, #ending-media-wrap iframe { width: 100%; height: 100%; object-fit: contain; border: 0; }
   </style>
@@ -76,14 +83,16 @@
     </div>
     <div class="bg-slate-800 p-4 border-t border-slate-700 shrink-0"><p id="loc-desc" class="text-slate-300 text-sm leading-relaxed">載入中...</p></div>
   </div>
-  <div id="intro-modal" class="fixed inset-0 z-[60] hidden flex-col items-center justify-center bg-black/95 p-4">
-    <div class="w-full max-w-4xl flex flex-col items-center gap-4">
-      <div class="text-sm text-slate-300" id="intro-counter">1 / 1</div>
+  <div id="intro-modal" class="fixed inset-0 z-[60] hidden">
+    <div id="intro-shell">
       <div id="media-stage"></div>
-      <div class="flex items-center gap-3 flex-wrap justify-center">
-        <button type="button" id="btn-intro-prev" class="bg-slate-700 hover:bg-slate-600 px-5 py-2.5 rounded-full text-sm disabled:opacity-30"><i class="fas fa-chevron-left"></i> 前</button>
-        <button type="button" id="btn-intro-enter" class="bg-amber-500 hover:bg-amber-400 text-slate-900 font-bold px-6 py-2.5 rounded-full text-sm">進入景點 <i class="fas fa-arrow-right ml-1"></i></button>
-        <button type="button" id="btn-intro-next" class="bg-slate-700 hover:bg-slate-600 px-5 py-2.5 rounded-full text-sm disabled:opacity-30">後 <i class="fas fa-chevron-right"></i></button>
+      <div id="intro-controls">
+        <div id="intro-counter">1 / 1</div>
+        <div class="flex items-center gap-3 flex-wrap justify-center">
+          <button type="button" id="btn-intro-prev" class="bg-white/20 hover:bg-white/30 backdrop-blur text-white px-5 py-2.5 rounded-full text-sm disabled:opacity-30"><i class="fas fa-chevron-left"></i> 前</button>
+          <button type="button" id="btn-intro-enter" class="bg-amber-500 hover:bg-amber-400 text-slate-900 font-bold px-6 py-2.5 rounded-full text-sm shadow-lg">進入景點 <i class="fas fa-arrow-right ml-1"></i></button>
+          <button type="button" id="btn-intro-next" class="bg-white/20 hover:bg-white/30 backdrop-blur text-white px-5 py-2.5 rounded-full text-sm disabled:opacity-30">後 <i class="fas fa-chevron-right"></i></button>
+        </div>
       </div>
     </div>
   </div>
