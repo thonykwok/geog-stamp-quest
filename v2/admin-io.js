@@ -9,7 +9,6 @@
   }
 
   waitReady(function () {
-    // Inject UI panel after settings card (first .bg-white in main) or before locations header
     var main = document.querySelector('main');
     if (!main || document.getElementById('io-panel')) return;
 
@@ -28,7 +27,6 @@
       '<span id="io-status" class="text-sm text-slate-500"></span>' +
       '</div>';
 
-    // Insert before the 景點 header (flex justify-between with 新增景點)
     var addBtn = document.getElementById('btn-add');
     if (addBtn && addBtn.parentElement) {
       main.insertBefore(panel, addBtn.parentElement);
@@ -39,13 +37,14 @@
     document.getElementById('btn-export').onclick = function () {
       try {
         if (typeof collectFromDom === 'function') collectFromDom();
+        var dataRef = (window.currentData && window.currentData.length) ? window.currentData : currentData;
         var payload = {
           format: 'geog-stamp-quest-v2',
           version: 1,
           exportedAt: new Date().toISOString(),
-          programName: (programMeta && programMeta.name) || '',
+          programName: (window.programMeta && window.programMeta.name) || (typeof programMeta !== 'undefined' && programMeta && programMeta.name) || '',
           settings: typeof readSettingsForm === 'function' ? readSettingsForm() : {},
-          locations: currentData || []
+          locations: dataRef || []
         };
         var blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
         var a = document.createElement('a');
@@ -71,12 +70,11 @@
           if (!data || (!Array.isArray(data.locations) && !Array.isArray(data))) {
             throw new Error('檔案格式不正確');
           }
-          // Support both our format and a raw locations array
           var locs = Array.isArray(data.locations) ? data.locations : data;
           var st = data.settings || null;
           if (!confirm('匯入會取代而家畫面上的設定同景點（尚未寫入資料庫）。\n共 ' + locs.length + ' 個景點。確定？')) return;
 
-          currentData = locs.map(function (x) {
+          var mapped = locs.map(function (x) {
             return {
               name: x.name || '',
               sub: x.sub || '',
@@ -92,10 +90,21 @@
               quizzes: Array.isArray(x.quizzes) ? x.quizzes : []
             };
           });
+
+          // Replace contents of currentData array in-place so all refs stay valid
+          if (typeof currentData !== 'undefined' && Array.isArray(currentData)) {
+            currentData.length = 0;
+            mapped.forEach(function (item) { currentData.push(item); });
+            window.currentData = currentData;
+          } else {
+            window.currentData = mapped;
+            currentData = mapped;
+          }
+
           if (st && typeof fillSettingsForm === 'function') fillSettingsForm(st);
           if (typeof renderList === 'function') renderList();
           document.getElementById('io-status').innerHTML =
-            '<span class="text-amber-600">已載入 ' + currentData.length + ' 個景點到畫面，請撳「儲存全部」寫入資料庫</span>';
+            '<span class="text-amber-600">已載入 ' + mapped.length + ' 個景點到畫面，請撳「儲存全部」寫入資料庫</span>';
           var status = document.getElementById('status');
           if (status) status.innerHTML = '<span class="text-amber-600">匯入完成，記得儲存全部</span>';
         } catch (e) {
