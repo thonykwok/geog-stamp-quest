@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>後台 | Geog Stamp Quest v2</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap');
+    body { font-family: 'Noto Sans TC', system-ui, sans-serif; }
+  </style>
+</head>
+<body class="min-h-screen bg-slate-100 text-slate-800">
+  <header class="bg-white border-b sticky top-0 z-20">
+    <div class="max-w-3xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-2">
+      <div>
+        <a href="dashboard.html" class="text-sm text-sky-600 hover:underline"><i class="fas fa-arrow-left mr-1"></i>返回列表</a>
+        <div id="prog-name" class="font-bold text-lg">載入中…</div>
+      </div>
+      <div class="flex gap-2">
+        <a id="link-play" href="#" target="_blank" class="text-sm px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700">遊玩</a>
+        <button id="btn-save" class="text-sm px-4 py-1.5 rounded-lg bg-sky-600 text-white hover:bg-sky-500">儲存全部</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-3xl mx-auto px-4 py-6">
+    <div id="status" class="text-sm text-slate-500 mb-4"></div>
+    <div class="flex justify-between items-center mb-4">
+      <h2 class="font-bold">景點</h2>
+      <button id="btn-add" class="text-sky-600 text-sm font-medium"><i class="fas fa-plus mr-1"></i>新增景點</button>
+    </div>
+    <div id="locations-list" class="space-y-4"></div>
+  </main>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <script src="firebase-config.js"></script>
+  <script>
+    const params = new URLSearchParams(location.search);
+    const programId = params.get('p');
+    if (!programId) { alert('缺少程式 ID'); location.href = 'dashboard.html'; }
+
+    const db = firebase.firestore();
+    let currentUser = null;
+    let currentData = [];
+    let programMeta = null;
+
+    function esc(s) {
+      return String(s || '').replace(/&/g,'&').replace(/</g,'<').replace(/>/g,'>').replace(/"/g,'"');
+    }
+
+    function parseStreetViewUrl(url) {
+      const m = String(url).match(/@(-?\d+\.?\d*),(-?\d+\.?\d*),3a,(\d+\.?\d*)y,(\d+\.?\d*)h,(-?\d+\.?\d*)t/);
+      if (!m) return null;
+      return {
+        lat: parseFloat(m[1]),
+        lng: parseFloat(m[2]),
+        heading: parseFloat(m[4]),
+        pitch: parseFloat(m[5]) - 90,
+        zoom: Math.max(0, (parseFloat(m[3]) - 75) / 15)
+      };
+    }
+
+    function renderList() {
+      const box = document.getElementById('locations-list');
+      if (!currentData.length) {
+        box.innerHTML = '<p class="text-slate-400 text-sm">尚未有景點</p>';
+        return;
+      }
+      box.innerHTML = currentData.map((loc, i) => {
+        const quizzes = (loc.quizzes || []).map((q, qi) => {
+          const opts = (q.options || ['A','B','C','D']);
+          const optHtml = opts.map((o, oi) =>
+            '<div class="flex items-center gap-2 mb-1">' +
+            '<span class="w-6 h-6 rounded-full bg-amber-100 text-amber-800 text-xs flex items-center justify-center">' + oi + '</span>' +
+            '<input data-qi="' + qi + '" data-oi="' + oi + '" data-f="opt" class="flex-1 border rounded-lg px-2 py-1 text-sm" value="' + esc(o) + '">' +
+            '</div>'
+          ).join('');
+          return '<div class="border rounded-xl p-3 mb-2 bg-slate-50" data-qi="' + qi + '">' +
+            '<div class="flex justify-between mb-2"><span class="text-sm font-medium">問題 ' + (qi+1) + '</span>' +
+            '<button type="button" class="text-red-400 text-xs" onclick="removeQuiz(' + i + ',' + qi + ')"><i class="fas fa-trash"></i></button></div>' +
+            '<input data-qi="' + qi + '" data-f="title" class="w-full border rounded-lg px-2 py-1 text-sm mb-1" placeholder="題目標題" value="' + esc(q.title||'') + '">' +
+            '<input data-qi="' + qi + '" data-f="q" class="w-full border rounded-lg px-2 py-1 text-sm mb-2" placeholder="問題內容" value="' + esc(q.q||'') + '">' +
+            '<p class="text-xs text-slate-500 mb-1">選項（正確答案填編號）</p>' + optHtml +
+            '<div class="mt-2 flex items-center gap-2"><span class="text-xs">正確答案</span>' +
+            '<input data-qi="' + qi + '" data-f="answer" type="number" min="0" class="w-16 border rounded-lg px-2 py-1 text-sm" value="' + (q.answer!=null?q.answer:0) + '"></div></div>';
+        }).join('');
+
+        const intros = (loc.introMedia || []).map((m, mi) =>
+          '<div class="flex gap-2 items-center mb-1" data-mi="' + mi + '">' +
+          '<select data-intro-type class="border rounded-lg px-2 py-1 text-sm"><option value="image"' + (m.type==='image'?' selected':'') + '>圖片</option><option value="youtube"' + (m.type==='youtube'?' selected':'') + '>YouTube</option></select>' +
+          '<input data-intro-url class="flex-1 border rounded-lg px-2 py-1 text-sm" value="' + esc(m.url||'') + '" placeholder="URL">' +
+          '<button type="button" class="text-red-400" onclick="removeIntro(' + i + ',' + mi + ')"><i class="fas fa-trash"></i></button></div>'
+        ).join('');
+
+        return '<div class="bg-white rounded-2xl border p-4 shadow-sm" data-index="' + i + '">' +
+          '<div class="flex justify-between items-center mb-3">' +
+          '<span class="font-semibold text-sky-700">#' + (i+1) + ' ' + esc(loc.name||'景點') + '</span>' +
+          '<div class="flex gap-1">' +
+          '<button type="button" class="w-8 h-8 rounded-lg bg-slate-100" onclick="moveLoc(' + i + ',-1)"' + (i===0?' disabled':'') + '><i class="fas fa-arrow-up"></i></button>' +
+          '<button type="button" class="w-8 h-8 rounded-lg bg-slate-100" onclick="moveLoc(' + i + ',1)"' + (i===currentData.length-1?' disabled':'') + '><i class="fas fa-arrow-down"></i></button>' +
+          '<button type="button" class="w-8 h-8 rounded-lg bg-red-50 text-red-500" onclick="delLoc(' + i + ')"><i class="fas fa-trash"></i></button></div></div>' +
+          '<label class="text-xs text-slate-500">Google 街景網址（貼上後撳套用）</label>' +
+          '<div class="flex gap-2 mb-2"><input data-f="svurl" class="flex-1 border rounded-lg px-2 py-1.5 text-sm" placeholder="https://www.google.com/maps/@...">' +
+          '<button type="button" class="bg-sky-500 text-white px-3 rounded-lg text-sm" onclick="applySv(' + i + ')">套用</button></div>' +
+          '<div class="grid grid-cols-2 gap-2 mb-2">' +
+          '<div><label class="text-xs text-slate-500">名稱</label><input data-f="name" class="w-full border rounded-lg px-2 py-1.5 text-sm" value="' + esc(loc.name) + '"></div>' +
+          '<div><label class="text-xs text-slate-500">副標題</label><input data-f="sub" class="w-full border rounded-lg px-2 py-1.5 text-sm" value="' + esc(loc.sub) + '"></div></div>' +
+          '<label class="text-xs text-slate-500">描述</label><textarea data-f="desc" class="w-full border rounded-lg px-2 py-1.5 text-sm mb-2" rows="2">' + esc(loc.desc) + '</textarea>' +
+          '<div class="grid grid-cols-2 gap-2 mb-2">' +
+          '<div><label class="text-xs">lat</label><input data-f="lat" type="number" step="any" class="w-full border rounded-lg px-2 py-1 text-sm" value="' + (loc.lat||'') + '"></div>' +
+          '<div><label class="text-xs">lng</label><input data-f="lng" type="number" step="any" class="w-full border rounded-lg px-2 py-1 text-sm" value="' + (loc.lng||'') + '"></div>' +
+          '<div><label class="text-xs">heading</label><input data-f="heading" type="number" step="any" class="w-full border rounded-lg px-2 py-1 text-sm" value="' + (loc.heading||0) + '"></div>' +
+          '<div><label class="text-xs">pitch</label><input data-f="pitch" type="number" step="any" class="w-full border rounded-lg px-2 py-1 text-sm" value="' + (loc.pitch||0) + '"></div>' +
+          '<div><label class="text-xs">zoom</label><input data-f="zoom" type="number" step="any" class="w-full border rounded-lg px-2 py-1 text-sm" value="' + (loc.zoom!=null?loc.zoom:1) + '"></div>' +
+          '<div><label class="text-xs">印章 emoji</label><input data-f="stampEmoji" class="w-full border rounded-lg px-2 py-1 text-sm" value="' + esc(loc.stampEmoji||'📍') + '"></div></div>' +
+          '<label class="text-xs">印章名稱</label><input data-f="stampName" class="w-full border rounded-lg px-2 py-1.5 text-sm mb-3" value="' + esc(loc.stampName||'') + '">' +
+          '<div class="border border-amber-200 bg-amber-50 rounded-xl p-3 mb-3">' +
+          '<div class="flex justify-between mb-2"><span class="text-sm font-semibold text-amber-900">前導媒體</span>' +
+          '<button type="button" class="text-sky-600 text-sm" onclick="addIntro(' + i + ')">+ 新增</button></div>' +
+          '<div class="intro-box">' + (intros || '<p class="text-xs text-slate-400">無</p>') + '</div></div>' +
+          '<div class="border-t pt-3"><div class="flex justify-between mb-2"><span class="text-sm font-medium">問題</span>' +
+          '<button type="button" class="text-sky-600 text-sm" onclick="addQuiz(' + i + ')">+ 新增問題</button></div>' +
+          '<div class="quizzes-box">' + (quizzes || '<p class="text-xs text-slate-400">無問題</p>') + '</div></div></div>';
+      }).join('');
+    }
+
+    function collectFromDom() {
+      document.querySelectorAll('#locations-list > [data-index]').forEach(card => {
+        const i = Number(card.getAttribute('data-index'));
+        if (!currentData[i]) return;
+        const get = f => { const el = card.querySelector('[data-f="' + f + '"]'); return el ? el.value : ''; };
+        currentData[i].name = get('name');
+        currentData[i].sub = get('sub');
+        currentData[i].desc = get('desc');
+        currentData[i].lat = parseFloat(get('lat')) || 0;
+        currentData[i].lng = parseFloat(get('lng')) || 0;
+        currentData[i].heading = parseFloat(get('heading')) || 0;
+        currentData[i].pitch = parseFloat(get('pitch')) || 0;
+        currentData[i].zoom = parseFloat(get('zoom'));
+        if (isNaN(currentData[i].zoom)) currentData[i].zoom = 1;
+        currentData[i].stampEmoji = get('stampEmoji');
+        currentData[i].stampName = get('stampName');
+        currentData[i].introMedia = [];
+        card.querySelectorAll('.intro-box [data-mi]').forEach(block => {
+          const t = block.querySelector('[data-intro-type]');
+          const u = block.querySelector('[data-intro-url]');
+          const url = u ? u.value.trim() : '';
+          if (url) currentData[i].introMedia.push({ type: t ? t.value : 'image', url });
+        });
+        currentData[i].quizzes = [];
+        card.querySelectorAll('.quizzes-box > [data-qi]').forEach(block => {
+          const qi = Number(block.getAttribute('data-qi'));
+          const title = (block.querySelector('[data-f="title"]') || {}).value || '';
+          const q = (block.querySelector('[data-f="q"]') || {}).value || '';
+          const answer = Number((block.querySelector('[data-f="answer"]') || {}).value || 0);
+          const options = [];
+          block.querySelectorAll('[data-f="opt"]').forEach(inp => { options.push(inp.value); });
+          currentData[i].quizzes.push({ title, q, options, answer });
+        });
+      });
+    }
+
+    window.applySv = function (i) {
+      collectFromDom();
+      const card = document.querySelector('[data-index="' + i + '"]');
+      const url = (card.querySelector('[data-f="svurl"]') || {}).value || '';
+      const p = parseStreetViewUrl(url);
+      if (!p) { alert('無法解析街景網址'); return; }
+      Object.assign(currentData[i], p);
+      renderList();
+    };
+    window.moveLoc = function (i, dir) {
+      collectFromDom();
+      const j = i + dir;
+      if (j < 0 || j >= currentData.length) return;
+      const t = currentData[i]; currentData[i] = currentData[j]; currentData[j] = t;
+      renderList();
+    };
+    window.delLoc = function (i) {
+      if (!confirm('刪除此景點？')) return;
+      collectFromDom();
+      currentData.splice(i, 1);
+      renderList();
+    };
+    window.addIntro = function (i) {
+      collectFromDom();
+      if (!currentData[i].introMedia) currentData[i].introMedia = [];
+      currentData[i].introMedia.push({ type: 'image', url: '' });
+      renderList();
+    };
+    window.removeIntro = function (i, mi) {
+      collectFromDom();
+      currentData[i].introMedia.splice(mi, 1);
+      renderList();
+    };
+    window.addQuiz = function (i) {
+      collectFromDom();
+      if (!currentData[i].quizzes) currentData[i].quizzes = [];
+      currentData[i].quizzes.push({ title: '任務', q: '', options: ['A','B','C','D'], answer: 0 });
+      renderList();
+    };
+    window.removeQuiz = function (i, qi) {
+      collectFromDom();
+      currentData[i].quizzes.splice(qi, 1);
+      renderList();
+    };
+
+    document.getElementById('btn-add').onclick = () => {
+      collectFromDom();
+      currentData.push({
+        name: '新景點', sub: '', desc: '',
+        lat: 22.2086, lng: 114.0284, heading: 0, pitch: 0, zoom: 1,
+        stampEmoji: '📍', stampName: '印章',
+        introMedia: [],
+        quizzes: [{ title: '任務', q: '問題？', options: ['A','B','C','D'], answer: 0 }]
+      });
+      renderList();
+    };
+
+    document.getElementById('btn-save').onclick = async () => {
+      collectFromDom();
+      const status = document.getElementById('status');
+      status.textContent = '儲存中…';
+      try {
+        const col = db.collection('programs').doc(programId).collection('locations');
+        const old = await col.get();
+        const batch = db.batch();
+        old.docs.forEach(d => batch.delete(d.ref));
+        currentData.forEach((loc, i) => {
+          batch.set(col.doc('loc' + i), {
+            order: i,
+            name: loc.name, sub: loc.sub || '', desc: loc.desc || '',
+            lat: loc.lat, lng: loc.lng, heading: loc.heading, pitch: loc.pitch,
+            zoom: loc.zoom != null ? loc.zoom : 1,
+            stampEmoji: loc.stampEmoji, stampName: loc.stampName,
+            introMedia: loc.introMedia || [],
+            quizzes: loc.quizzes || []
+          });
+        });
+        await batch.commit();
+        status.innerHTML = '<span class="text-emerald-600">✅ 已儲存 ' + currentData.length + ' 個景點</span>';
+      } catch (e) {
+        status.textContent = '儲存失敗：' + e.message;
+      }
+    };
+
+    async function boot() {
+      const prog = await db.collection('programs').doc(programId).get();
+      if (!prog.exists) { alert('找不到程式'); location.href = 'dashboard.html'; return; }
+      programMeta = prog.data();
+      if (programMeta.ownerUid !== currentUser.uid) {
+        alert('你沒有權限編輯此程式');
+        location.href = 'dashboard.html';
+        return;
+      }
+      document.getElementById('prog-name').textContent = programMeta.name || '後台';
+      document.getElementById('link-play').href = 'play.html?p=' + programId;
+      const snap = await db.collection('programs').doc(programId).collection('locations').orderBy('order').get();
+      currentData = snap.docs.map(d => {
+        const x = d.data();
+        return {
+          name: x.name || '', sub: x.sub || '', desc: x.desc || '',
+          lat: x.lat, lng: x.lng, heading: x.heading || 0, pitch: x.pitch || 0,
+          zoom: x.zoom != null ? x.zoom : 1,
+          stampEmoji: x.stampEmoji || '📍', stampName: x.stampName || '',
+          introMedia: x.introMedia || [],
+          quizzes: x.quizzes || []
+        };
+      });
+      document.getElementById('status').textContent = currentData.length ? ('已載入 ' + currentData.length + ' 個景點') : '暫無景點';
+      renderList();
+    }
+
+    firebase.auth().onAuthStateChanged(user => {
+      if (!user) { location.href = 'index.html'; return; }
+      currentUser = user;
+      boot().catch(e => {
+        document.getElementById('status').textContent = '錯誤：' + e.message;
+      });
+    });
+  </script>
+</body>
+</html>
