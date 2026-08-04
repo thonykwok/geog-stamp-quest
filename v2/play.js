@@ -19,15 +19,30 @@
   let miniMarker = null;
   let mapsReady = false;
   let dataReady = false;
+  let svService = null;
 
-  // Intro media
   let introList = [];
   let introIndex = 0;
   let introPending = 0;
 
+  function showSvLoading(msg, sub) {
+    var el = document.getElementById('sv-loading');
+    var t = document.getElementById('sv-loading-text');
+    var s = document.getElementById('sv-loading-sub');
+    if (t) t.textContent = msg || '載入街景中…';
+    if (s) s.textContent = sub != null ? sub : '首次載入可能需要幾秒';
+    if (el) el.classList.add('show');
+  }
+  function hideSvLoading() {
+    var el = document.getElementById('sv-loading');
+    if (el) el.classList.remove('show');
+  }
+
   window.initPano = function () {
     mapsReady = true;
-    tryStart();
+    try {
+      svService = new google.maps.StreetViewService();
+    } catch (e) {}
   };
 
   async function loadProgram() {
@@ -42,6 +57,10 @@
     if (settings.landingSubtitle) document.getElementById('landing-subtitle').textContent = settings.landingSubtitle;
     if (settings.landingDesc) document.getElementById('landing-desc').textContent = settings.landingDesc;
     if (settings.postcardTitle) document.getElementById('postcard-title').textContent = settings.postcardTitle;
+    if (settings.landingEmoji) {
+      var em = document.getElementById('landing-emoji');
+      if (em) em.textContent = settings.landingEmoji;
+    }
 
     const snap = await db.collection('programs').doc(programId).collection('locations').orderBy('order').get();
     locations = snap.docs.map(d => {
@@ -64,11 +83,6 @@
     if (!locations.length) throw new Error('此程式尚未設定任何景點，請老師先在後台新增');
     collected = locations.map(() => false);
     dataReady = true;
-    tryStart();
-  }
-
-  function tryStart() {
-    // wait until user clicks start; just ensure maps+data
   }
 
   loadProgram().catch(e => {
@@ -79,7 +93,7 @@
 
   window.startGame = function () {
     if (!dataReady) { alert('資料仍在載入，請稍候'); return; }
-    if (!mapsReady) { alert('地圖仍在載入，請稍候'); return; }
+    if (!mapsReady) { alert('地圖仍在載入，請稍候再撳'); return; }
     document.getElementById('landing').classList.add('hidden');
     document.getElementById('game').classList.remove('hidden');
     rebuildDots();
@@ -152,30 +166,28 @@
     loadLocation(introPending);
   };
 
-  window.loadLocation = function (i) {
-    current = i;
-    const loc = locations[i];
-    document.getElementById('loc-name').textContent = loc.name;
-    document.getElementById('loc-sub').textContent = loc.sub || ('第 ' + (i + 1) + ' / ' + locations.length + ' 站');
-    document.getElementById('loc-desc').textContent = loc.desc || '';
-    document.getElementById('btn-prev').disabled = i <= 0;
-    document.getElementById('btn-next').disabled = i >= locations.length - 1;
-    rebuildDots();
+  function ensurePano() {
+    if (panorama) return;
+    panorama = new google.maps.StreetViewPanorama(document.getElementById('pano'), {
+      addressControl: false,
+      showRoadLabels: false,
+      linksControl: true,
+      panControl: true,
+      enableCloseButton: false
+    });
+    panorama.addListener('position_changed', function () {
+      var p = panorama.getPosition();
+      if (!p) return;
+      if (miniMarker) miniMarker.setPosition(p);
+      if (miniMap) miniMap.setCenter(p);
+    });
+    panorama.addListener('status_changed', function () {
+      var st = panorama.getStatus();
+      if (st === 'OK') hideSvLoading();
+    });
+  }
 
-    const pos = { lat: loc.lat, lng: loc.lng };
-    const pov = { heading: loc.heading || 0, pitch: loc.pitch || 0, zoom: loc.zoom != null ? loc.zoom : 1 };
-    if (!panorama) {
-      panorama = new google.maps.StreetViewPanorama(document.getElementById('pano'), {
-        position: pos, pov: pov, zoom: pov.zoom, addressControl: false, showRoadLabels: false
-      });
-      panorama.addListener('position_changed', function () {
-        if (miniMarker) miniMarker.setPosition(panorama.getPosition());
-        if (miniMap) miniMap.setCenter(panorama.getPosition());
-      });
-    } else {
-      panorama.setPosition(pos);
-      panorama.setPov(pov);
-    }
+  function ensureMiniMap(pos) {
     if (!miniMap) {
       miniMap = new google.maps.Map(document.getElementById('mini-map'), {
         center: pos, zoom: 16, disableDefaultUI: true, gestureHandling: 'greedy'
@@ -186,6 +198,73 @@
       miniMap.setCenter(pos);
       if (miniMarker) miniMarker.setPosition(pos);
     }
+  }
+
+  window.loadLocation = function (i) {
+    current = i;
+    const loc = locations[i];
+    document.getElementById('loc-name').textContent = loc.name;
+    var fmt = (settings.progressFormat || '第 {i} / {total} 站')
+      .replace('{i}', String(i + 1))
+      .replace('{total}', String(locations.length));
+    document.getElementById('loc-sub').textContent = loc.sub || fmt;
+    document.getElementById('loc-desc').textContent = loc.desc || '';
+    document.getElementById('btn-prev').disabled = i <= 0;
+    document.getElementById('btn-next').disabled = i >= locations.length - 1;
+    rebuildDots();
+
+    const target = { lat: loc.lat, lng: loc.lng };
+    const pov = {
+      heading: loc.heading || 0,
+      pitch: loc.pitch || 0,
+      zoom: loc.zoom != null ? loc.zoom : 1
+    };
+
+    showSvLoading('載入街景中…', loc.name);
+    ensurePano();
+    ensureMiniMap(target);
+
+    function applyPano(latLng) {
+      panorama.setPosition(latLng);
+      panorama.setPov({ heading: pov.heading, pitch: pov.pitch });
+      if (pov.zoom != null) panorama.setZoom(pov.zoom);
+      // hide after short delay even if status is slow
+      setTimeout(hideSvLoading, 2500);
+    }
+
+    if (!svService) {
+      applyPano(target);
+      return;
+    }
+
+    // Find nearest panorama within 150m, then 500m
+    svService.getPanorama({ location: target, radius: 150 }, function (data, status) {
+      if (status === 'OK' && data && data.location) {
+        applyPano(data.location.latLng);
+        return;
+      }
+      svService.getPanorama({ location: target, radius: 500 }, function (data2, status2) {
+        if (status2 === 'OK' && data2 && data2.location) {
+          showSvLoading('載入附近街景…', '此座標附近無精確街景，已改用最接近位置');
+          applyPano(data2.location.latLng);
+          return;
+        }
+        // No coverage
+        showSvLoading(
+          '此位置暫無 Google 街景',
+          '偏遠郊野／離島可能未有覆蓋。仍可答題；或於後台改用有街景的座標。'
+        );
+        // keep overlay visible with message (not a spinner forever)
+        var spin = document.querySelector('#sv-loading .spinner');
+        if (spin) spin.style.display = 'none';
+        setTimeout(function () {
+          hideSvLoading();
+          if (spin) spin.style.display = '';
+        }, 4000);
+        // still try setPosition so UI doesn't break
+        try { panorama.setPosition(target); } catch (e) {}
+      });
+    });
   };
 
   window.prevLocation = function () { if (current > 0) goToLocation(current - 1); };
