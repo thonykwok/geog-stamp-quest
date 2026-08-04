@@ -1,7 +1,10 @@
 /**
- * Per-location intro media (image / YouTube) for admin. v3
+ * Per-location intro media (image / YouTube) for admin. v4
+ * Fix: prevent MutationObserver re-entry loop that blocks clicks
  */
 (function () {
+  var injecting = false;
+
   function esc(str) {
     return String(str || '')
       .replace(/&/g, '&')
@@ -25,21 +28,21 @@
     var items = (loc.introMedia || []).map(function (m, mi) {
       return (
         '<div class="flex flex-wrap gap-2 items-center bg-white rounded-lg p-2 border border-amber-200 mb-1" data-mi="' + mi + '">' +
-        '<select data-intro-type class="border border-slate-200 rounded-lg px-2 py-1.5 text-sm">' +
+        '<select data-intro-type class="border border-slate-200 rounded-lg px-2 py-1.5 text-sm bg-white">' +
         '<option value="image"' + (m.type === 'image' ? ' selected' : '') + '>圖片</option>' +
         '<option value="youtube"' + (m.type === 'youtube' ? ' selected' : '') + '>YouTube</option>' +
         '</select>' +
-        '<input data-intro-url class="flex-1 min-w-[10rem] border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm" placeholder="圖片 URL 或 YouTube 連結" value="' + esc(m.url || '') + '">' +
-        '<button type="button" class="text-red-500 text-sm px-2 py-1" onclick="window.removeIntro(' + i + ',' + mi + ')" title="刪除"><i class="fas fa-trash"></i></button>' +
+        '<input data-intro-url class="flex-1 min-w-[10rem] border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm bg-white" placeholder="圖片 URL 或 YouTube 連結" value="' + esc(m.url || '') + '">' +
+        '<button type="button" class="text-red-500 text-sm px-2 py-1 hover:bg-red-50 rounded" onclick="window.removeIntro(' + i + ',' + mi + ')" title="刪除"><i class="fas fa-trash"></i></button>' +
         '</div>'
       );
     }).join('');
 
     return (
-      '<div class="border border-amber-300 pt-3 mb-3 intro-section bg-amber-50 rounded-xl p-3" data-intro-for="' + i + '">' +
+      '<div class="border border-amber-300 mb-3 intro-section bg-amber-50 rounded-xl p-3" data-intro-for="' + i + '">' +
       '<div class="flex justify-between items-center mb-2">' +
       '<span class="text-sm font-semibold text-amber-900">🖼️ 前導媒體（答題前）</span>' +
-      '<button type="button" class="bg-sky-500 hover:bg-sky-600 text-white text-sm font-medium px-3 py-1.5 rounded-lg" onclick="window.addIntro(' + i + ')">' +
+      '<button type="button" class="bg-sky-500 hover:bg-sky-600 text-white text-sm font-medium px-3 py-1.5 rounded-lg cursor-pointer" onclick="window.addIntro(' + i + '); return false;">' +
       '<i class="fas fa-plus mr-1"></i>新增</button>' +
       '</div>' +
       '<p class="text-xs text-slate-600 mb-2">可加 0 或多個圖片／YouTube。無則直接入街景。</p>' +
@@ -50,36 +53,41 @@
   }
 
   function injectIntroBlocks() {
-    var d = getData();
-    if (!d || !d.length) return;
+    if (injecting) return;
+    injecting = true;
+    try {
+      var d = getData();
+      if (!d || !d.length) return;
 
-    document.querySelectorAll('#locations-list > div[data-index]').forEach(function (card) {
-      var i = parseInt(card.getAttribute('data-index'), 10);
-      if (isNaN(i) || !d[i]) return;
-      if (!Array.isArray(d[i].introMedia)) d[i].introMedia = [];
+      document.querySelectorAll('#locations-list > div[data-index]').forEach(function (card) {
+        var i = parseInt(card.getAttribute('data-index'), 10);
+        if (isNaN(i) || !d[i]) return;
+        if (!Array.isArray(d[i].introMedia)) d[i].introMedia = [];
 
-      var old = card.querySelector('.intro-section');
-      if (old) old.remove();
+        var old = card.querySelector('.intro-section');
+        if (old) old.remove();
 
-      var quizContainer = card.querySelector('.quizzes-container');
-      var insertBefore = null;
-      if (quizContainer && quizContainer.parentElement) {
-        insertBefore = quizContainer.parentElement;
-      } else {
-        var borders = card.querySelectorAll('.border-t');
-        if (borders.length) insertBefore = borders[borders.length - 1];
-      }
-      if (!insertBefore || !insertBefore.parentNode) {
-        var wrap2 = document.createElement('div');
-        wrap2.innerHTML = introBlockHtml(d[i], i);
-        card.appendChild(wrap2.firstChild);
-        return;
-      }
+        var quizContainer = card.querySelector('.quizzes-container');
+        var insertBefore = null;
+        if (quizContainer && quizContainer.parentElement) {
+          insertBefore = quizContainer.parentElement;
+        } else {
+          var borders = card.querySelectorAll('.border-t');
+          if (borders.length) insertBefore = borders[borders.length - 1];
+        }
 
-      var wrap = document.createElement('div');
-      wrap.innerHTML = introBlockHtml(d[i], i);
-      insertBefore.parentNode.insertBefore(wrap.firstChild, insertBefore);
-    });
+        var wrap = document.createElement('div');
+        wrap.innerHTML = introBlockHtml(d[i], i);
+        var node = wrap.firstChild;
+        if (insertBefore && insertBefore.parentNode) {
+          insertBefore.parentNode.insertBefore(node, insertBefore);
+        } else {
+          card.appendChild(node);
+        }
+      });
+    } finally {
+      setTimeout(function () { injecting = false; }, 150);
+    }
   }
 
   function harvestIntroFromDom() {
@@ -93,12 +101,10 @@
         var t = block.querySelector('[data-intro-type]');
         var u = block.querySelector('[data-intro-url]');
         var url = u ? u.value.trim() : '';
-        if (url) {
-          d[i].introMedia.push({
-            type: t ? t.value : 'image',
-            url: url
-          });
-        }
+        d[i].introMedia.push({
+          type: t ? t.value : 'image',
+          url: url
+        });
       });
     });
   }
@@ -108,7 +114,7 @@
     harvestIntroFromDom();
     var d = getData();
     if (!d) {
-      alert('資料尚未載入，請稍候再試');
+      alert('資料尚未載入，請稍候再試或重新整理頁面');
       return;
     }
     if (!d[i]) {
@@ -165,6 +171,11 @@
         alert('找不到景點資料');
         return;
       }
+      d.forEach(function (loc) {
+        if (loc.introMedia) {
+          loc.introMedia = loc.introMedia.filter(function (m) { return m && m.url && m.url.trim(); });
+        }
+      });
       var status = document.getElementById('status');
       if (status) status.textContent = '儲存中...';
       try {
@@ -212,25 +223,27 @@
   function loop() {
     tries++;
     tryInit();
-    var d = getData();
     var cards = document.querySelectorAll('#locations-list > div[data-index]').length;
     var hasIntro = document.querySelectorAll('.intro-section').length;
     if (cards > 0 && hasIntro > 0) {
-      console.log('[admin-intro v3] ready cards=', cards);
+      console.log('[admin-intro v4] ready cards=', cards);
       return;
     }
     if (tries < 100) setTimeout(loop, 200);
-    else console.warn('[admin-intro v3] timeout cards=', cards, 'dataLen=', d && d.length);
   }
 
   setTimeout(loop, 200);
 
   setTimeout(function () {
     var list = document.getElementById('locations-list');
-    if (list) {
-      new MutationObserver(function () {
-        setTimeout(injectIntroBlocks, 60);
-      }).observe(list, { childList: true, subtree: true });
-    }
+    if (!list) return;
+    new MutationObserver(function (mutations) {
+      var relevant = mutations.some(function (m) {
+        return Array.prototype.slice.call(m.addedNodes).some(function (n) {
+          return n.nodeType === 1 && n.getAttribute && n.getAttribute('data-index') != null;
+        });
+      });
+      if (relevant) setTimeout(injectIntroBlocks, 80);
+    }).observe(list, { childList: true, subtree: false });
   }, 400);
 })();
