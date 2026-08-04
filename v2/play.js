@@ -42,6 +42,42 @@
     if (bar) bar.style.display = '';
   }
 
+  function updateActionButtons() {
+    var quizBtn = document.getElementById('btn-quiz');
+    var quizLabel = document.getElementById('btn-quiz-label');
+    var nextBtn = document.getElementById('btn-next');
+    var prevBtn = document.getElementById('btn-prev');
+    if (!quizBtn || !nextBtn) return;
+
+    var done = !!collected[current];
+    var atEnd = current >= locations.length - 1;
+    var txtQuiz = (settings && settings.txtQuiz) || '開始任務';
+    var txtDone = (settings && settings.txtDone) || '已完成';
+
+    // Quiz button
+    quizBtn.classList.remove('btn-glow', 'btn-glow-amber', 'btn-done', 'btn-idle');
+    if (done) {
+      quizBtn.classList.add('btn-done');
+      if (quizLabel) quizLabel.textContent = txtDone;
+      quizBtn.disabled = true;
+    } else {
+      quizBtn.classList.add('btn-glow', 'btn-glow-amber');
+      if (quizLabel) quizLabel.textContent = txtQuiz;
+      quizBtn.disabled = false;
+    }
+
+    // Next button: glow only when current station is done and not last
+    nextBtn.classList.remove('btn-glow', 'btn-glow-sky', 'btn-idle', 'btn-done');
+    nextBtn.disabled = atEnd;
+    if (!atEnd && done) {
+      nextBtn.classList.add('btn-glow', 'btn-glow-sky');
+    } else {
+      nextBtn.classList.add('btn-idle');
+    }
+
+    if (prevBtn) prevBtn.disabled = current <= 0;
+  }
+
   window.initPano = function () {
     mapsReady = true;
     try {
@@ -213,9 +249,8 @@
       .replace('{total}', String(locations.length));
     document.getElementById('loc-sub').textContent = loc.sub || fmt;
     document.getElementById('loc-desc').textContent = loc.desc || '';
-    document.getElementById('btn-prev').disabled = i <= 0;
-    document.getElementById('btn-next').disabled = i >= locations.length - 1;
     rebuildDots();
+    updateActionButtons();
 
     const target = { lat: loc.lat, lng: loc.lng };
     const pov = {
@@ -266,6 +301,7 @@
   window.nextLocation = function () { if (current < locations.length - 1) goToLocation(current + 1); };
 
   window.startQuiz = function () {
+    if (collected[current]) return;
     const loc = locations[current];
     if (!loc.quizzes || !loc.quizzes.length) {
       alert('此站未設定問題');
@@ -306,6 +342,7 @@
               collected[current] = true;
               rebuildPostcard();
               rebuildDots();
+              updateActionButtons();
               fb.innerHTML = '<span class="text-emerald-400">全部答對！印章已收集！</span>';
               setTimeout(function () {
                 closeQuiz();
