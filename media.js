@@ -1,5 +1,8 @@
-/* media helpers for geog-stamp-quest v2 */
+/* media helpers for geog-stamp-quest v3 */
 (function () {
+  var introCache = []; // parallel to locations order
+  var introMediaReady = false;
+
   function youtubeId(url) {
     if (!url) return null;
     var m = String(url).match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtube-nocookie\.com\/embed\/)([A-Za-z0-9_-]{11})/);
@@ -14,8 +17,8 @@
       return '<iframe src="https://www.youtube.com/embed/' + id + '?rel=0&modestbranding=1" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>';
     }
     if (type === 'image') {
-      var safe = String(url).replace(/&/g, '&').replace(/"/g, '"').replace(/</g, '<');
-      return '<img src="' + safe + '" alt="前導圖片" style="width:100%;height:100%;object-fit:contain;background:#000" onerror="this.parentNode.innerHTML=\'<p class=\'text-red-300 text-sm p-4\'>圖片載入失敗，請檢查網址或網站是否禁止外連</p>\'" />';
+      var safe = String(url).split('"').join('%22');
+      return '<img src="' + safe + '" alt="前導圖片" style="width:100%;height:100%;object-fit:contain;background:#000" onerror="this.parentNode.innerHTML=\'<p class=\'text-red-300 text-sm p-4\'>圖片載入失敗，請檢查網址是否公開可存取</p>\'" />';
     }
     return '';
   }
@@ -34,9 +37,19 @@
   var introList = [];
   var introIndex = 0;
   var introPendingLocation = 0;
-  var introMediaReady = false;
 
   window.__media = { youtubeId: youtubeId, mediaHtml: mediaHtml, fillMediaContainer: fillMediaContainer };
+
+  function applyCacheToLocations() {
+    if (typeof locations === 'undefined' || !locations.length) return;
+    for (var i = 0; i < locations.length; i++) {
+      if (introCache[i]) {
+        locations[i].introMedia = introCache[i].slice();
+      } else if (!locations[i].introMedia) {
+        locations[i].introMedia = [];
+      }
+    }
+  }
 
   window.openIntro = function (locIndex, media) {
     introPendingLocation = locIndex;
@@ -87,9 +100,18 @@
 
   window.goToLocation = function (i) {
     if (typeof locations === 'undefined' || i < 0 || i >= locations.length) return;
+    applyCacheToLocations();
     var loc = locations[i];
-    var media = (loc.introMedia || []).filter(function (m) { return m && m.url && String(m.url).trim(); });
-    console.log('[media] goToLocation', i, 'intro count', media.length, media);
+    var media = (loc.introMedia || []).filter(function (m) {
+      return m && m.url && String(m.url).trim();
+    });
+    // Fallback to cache directly
+    if (!media.length && introCache[i] && introCache[i].length) {
+      media = introCache[i].filter(function (m) {
+        return m && m.url && String(m.url).trim();
+      });
+    }
+    console.log('[media] goToLocation', i, loc.name, 'intro count', media.length, media);
     if (media.length > 0) openIntro(i, media);
     else if (typeof loadLocation === 'function') loadLocation(i);
   };
@@ -121,6 +143,23 @@
       }
     };
 
+    // Re-apply cache after Firestore load finishes
+    if (typeof loadFromFirestore === 'function' && !loadFromFirestore.__mediaPatched) {
+      var origLoad = loadFromFirestore;
+      loadFromFirestore = async function () {
+        await origLoad();
+        applyCacheToLocations();
+        // If cache empty, fetch again
+        if (!introCache.length) {
+          try { await fetchIntroCache(); } catch (e) {}
+        } else {
+          applyCacheToLocations();
+        }
+        introMediaReady = true;
+      };
+      loadFromFirestore.__mediaPatched = true;
+    }
+
     startGame = function () {
       document.getElementById('landing').classList.add('hidden');
       document.getElementById('game').classList.remove('hidden');
@@ -128,13 +167,17 @@
       if (typeof rebuildProgressDots === 'function') rebuildProgressDots();
       if (typeof rebuildPostcard === 'function') rebuildPostcard();
       if (typeof updateStamps === 'function') updateStamps();
-      function go() { goToLocation(0); }
-      if (introMediaReady) setTimeout(go, 50);
+      applyCacheToLocations();
+      function go() {
+        applyCacheToLocations();
+        goToLocation(0);
+      }
+      if (introMediaReady) setTimeout(go, 80);
       else {
         var w = 0;
         var t = setInterval(function () {
           w++;
-          if (introMediaReady || w > 30) {
+          if (introMediaReady || w > 40) {
             clearInterval(t);
             go();
           }
@@ -184,36 +227,42 @@
   }
   tryPatch();
 
-  (async function reloadIntroMedia() {
-    function wait() {
+  async function fetchIntroCache() {
+    if (typeof firebase === 'undefined') return;
+    var db = firebase.firestore();
+    var snap = await db.collection('locations').orderBy('order').get();
+    introCache = [];
+    if (!snap.empty) {
+      snap.docs.forEach(function (doc, i) {
+        var data = doc.data();
+        var list = Array.isArray(data.introMedia) ? data.introMedia : [];
+        introCache[i] = list.filter(function (m) {
+          return m && m.url && String(m.url).trim();
+        }).map(function (m) {
+          return { type: m.type === 'youtube' ? 'youtube' : 'image', url: String(m.url).trim() };
+        });
+        if (introCache[i].length) {
+          console.log('[media] cache loc', i, data.name, 'count', introCache[i].length, introCache[i]);
+        }
+      });
+    }
+    applyCacheToLocations();
+  }
+
+  (async function boot() {
+    function waitFb() {
       return new Promise(function (resolve) {
         function check() {
-          if (typeof firebase !== 'undefined' && typeof locations !== 'undefined' && locations.length) resolve();
-          else setTimeout(check, 150);
+          if (typeof firebase !== 'undefined') resolve();
+          else setTimeout(check, 100);
         }
         check();
       });
     }
-    await wait();
+    await waitFb();
     try {
-      var db = firebase.firestore();
-      var snap = await db.collection('locations').orderBy('order').get();
-      if (!snap.empty) {
-        var docs = snap.docs;
-        for (var i = 0; i < docs.length && i < locations.length; i++) {
-          var data = docs[i].data();
-          var list = Array.isArray(data.introMedia) ? data.introMedia : [];
-          locations[i].introMedia = list.filter(function (m) {
-            return m && m.url && String(m.url).trim() && (m.type === 'image' || m.type === 'youtube' || !m.type);
-          }).map(function (m) {
-            return { type: m.type || 'image', url: String(m.url).trim() };
-          });
-          if (locations[i].introMedia.length) {
-            console.log('[media] loc', i, locations[i].name, 'introMedia', locations[i].introMedia.length);
-          }
-        }
-      }
-      var settingsDoc = await db.collection('config').doc('settings').get();
+      await fetchIntroCache();
+      var settingsDoc = await firebase.firestore().collection('config').doc('settings').get();
       if (settingsDoc.exists && typeof settings !== 'undefined') {
         var s = settingsDoc.data();
         settings.landingMediaType = s.landingMediaType || 'none';
@@ -227,9 +276,13 @@
         );
       }
     } catch (e) {
-      console.warn('[media] intro reload failed', e);
+      console.warn('[media] boot failed', e);
     }
     introMediaReady = true;
-    console.log('[media] introMedia ready');
+    console.log('[media] introMedia ready, cache size', introCache.length);
+    // Re-apply a few times in case loadFromFirestore finishes later
+    setTimeout(applyCacheToLocations, 500);
+    setTimeout(applyCacheToLocations, 1500);
+    setTimeout(applyCacheToLocations, 3000);
   })();
 })();
