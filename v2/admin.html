@@ -28,7 +28,6 @@
   <main class="max-w-3xl mx-auto px-4 py-6">
     <div id="status" class="text-sm text-slate-500 mb-4"></div>
 
-    <!-- 遊戲設定 -->
     <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm mb-6">
       <h2 class="font-bold text-lg mb-1 flex items-center gap-2"><i class="fas fa-cog text-slate-500"></i> 遊戲設定（前台所有文字）</h2>
       <p class="text-xs text-slate-400 mb-4">呢度改嘅字會出現喺學生遊玩頁面</p>
@@ -74,8 +73,10 @@
 
     const db = firebase.firestore();
     let currentUser = null;
-    let currentData = [];
+    var currentData = [];
+    window.currentData = currentData;
     let programMeta = null;
+    window.programMeta = null;
     let settings = {};
 
     const DEFAULT_SETTINGS = {
@@ -109,6 +110,7 @@
         if (el) el.value = settings[k] != null ? settings[k] : DEFAULT_SETTINGS[k];
       });
     }
+    window.fillSettingsForm = fillSettingsForm;
 
     function readSettingsForm() {
       var out = {};
@@ -118,6 +120,7 @@
       });
       return out;
     }
+    window.readSettingsForm = readSettingsForm;
 
     function parseStreetViewUrl(url) {
       const m = String(url).match(/@(-?\d+\.?\d*),(-?\d+\.?\d*),3a,(\d+\.?\d*)y,(\d+\.?\d*)h,(-?\d+\.?\d*)t/);
@@ -192,6 +195,7 @@
           '<div class="quizzes-box">' + (quizzes || '<p class="text-xs text-slate-400">無問題</p>') + '</div></div></div>';
       }).join('');
     }
+    window.renderList = renderList;
 
     function collectFromDom() {
       document.querySelectorAll('#locations-list > [data-index]').forEach(card => {
@@ -226,7 +230,9 @@
           currentData[i].quizzes.push({ title, q, options, answer });
         });
       });
+      window.currentData = currentData;
     }
+    window.collectFromDom = collectFromDom;
 
     window.applySv = function (i) {
       collectFromDom();
@@ -282,6 +288,7 @@
         introMedia: [],
         quizzes: [{ title: '任務', q: '問題？', options: ['A','B','C','D'], answer: 0 }]
       });
+      window.currentData = currentData;
       renderList();
     };
 
@@ -330,6 +337,7 @@
       const prog = await db.collection('programs').doc(programId).get();
       if (!prog.exists) { alert('找不到程式'); location.href = 'dashboard.html'; return; }
       programMeta = prog.data();
+      window.programMeta = programMeta;
       if (programMeta.ownerUid !== currentUser.uid) {
         alert('你沒有權限編輯此程式');
         location.href = 'dashboard.html';
@@ -350,6 +358,7 @@
           quizzes: x.quizzes || []
         };
       });
+      window.currentData = currentData;
       document.getElementById('status').textContent = currentData.length ? ('已載入 ' + currentData.length + ' 個景點') : '暫無景點';
       renderList();
     }
@@ -362,5 +371,6 @@
       });
     });
   </script>
+  <script src="admin-io.js?v=1"></script>
 </body>
 </html>
