@@ -1,1 +1,152 @@
-LOADING
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <title id="page-title">地理明信片 | Geog Stamp Quest</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap');
+    body { font-family: 'Noto Sans TC', system-ui, sans-serif; margin: 0; }
+    .stamp { transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
+    .stamp.collected { transform: scale(1.1) rotate(-8deg); filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3)); }
+    .postcard { background: linear-gradient(135deg, #fef3c7 0%, #fde68a 50%, #fcd34d 100%); border: 8px solid #92400e; box-shadow: 0 10px 40px rgba(0,0,0,0.25), inset 0 0 30px rgba(146,64,14,0.1); }
+    .quiz-card { animation: slideUp 0.4s ease-out; }
+    @keyframes slideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+    .progress-dot.active { background: #f59e0b; transform: scale(1.3); }
+    .progress-dot.done { background: #10b981; }
+    #map-container { flex: 1 1 auto; min-height: 58vh; height: 58vh; position: relative; background: #0f172a; }
+    @media (min-height: 750px) { #map-container { min-height: 65vh; height: 65vh; } }
+    #pano { width: 100%; height: 100%; }
+    #mini-map-wrap { position: absolute; bottom: 72px; left: 12px; z-index: 30; pointer-events: none; }
+    #mini-map { width: 160px; height: 160px; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.55); border: 2px solid rgba(255,255,255,0.5); background: #e2e8f0; transition: width 0.25s ease, height 0.25s ease; pointer-events: auto; }
+    #mini-map-wrap.expanded #mini-map { width: min(380px, 85vw); height: min(380px, 55vh); }
+    #btn-mini-toggle { position: absolute; top: 4px; right: 4px; width: 32px; height: 32px; border-radius: 8px; background: rgba(15,23,42,0.85); color: white; border: 1px solid rgba(255,255,255,0.35); font-size: 13px; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 40; pointer-events: auto; -webkit-tap-highlight-color: transparent; }
+    #btn-mini-toggle:active { transform: scale(0.92); }
+    @media (max-width: 480px) { #mini-map-wrap { bottom: 68px; left: 8px; } #mini-map { width: 130px; height: 130px; } #mini-map-wrap.expanded #mini-map { width: min(300px, 88vw); height: min(300px, 50vh); } }
+    #media-stage { width: 100%; max-width: 960px; aspect-ratio: 16 / 9; background: #000; border-radius: 12px; overflow: hidden; position: relative; }
+    #media-stage img, #media-stage iframe { width: 100%; height: 100%; object-fit: contain; border: 0; }
+    #landing-media-wrap, #ending-media-wrap { width: 100%; max-width: 560px; margin: 0 auto 1.25rem; aspect-ratio: 16 / 9; border-radius: 12px; overflow: hidden; background: #000; }
+    #landing-media-wrap img, #landing-media-wrap iframe, #ending-media-wrap img, #ending-media-wrap iframe { width: 100%; height: 100%; object-fit: contain; border: 0; }
+  </style>
+</head>
+<body class="bg-slate-900 text-white min-h-screen overflow-x-hidden">
+  <div id="landing" class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-gradient-to-b from-sky-900 via-blue-900 to-slate-900 p-6 text-center overflow-y-auto">
+    <div class="max-w-lg w-full py-6">
+      <div id="landing-media-wrap" class="hidden"></div>
+      <div class="text-6xl mb-4" id="landing-emoji">🏝️</div>
+      <h1 id="landing-title" class="text-4xl md:text-5xl font-bold mb-3 tracking-tight">地理明信片</h1>
+      <p id="landing-subtitle" class="text-xl text-sky-200 mb-2">Geog Stamp Quest</p>
+      <p id="landing-desc" class="text-slate-300 mb-8 leading-relaxed">第一身視角探索，完成任務，集齊明信片上的印章！</p>
+      <button onclick="startGame()" id="btn-start" class="bg-amber-500 hover:bg-amber-400 text-slate-900 font-bold text-lg px-10 py-4 rounded-full shadow-lg transition transform hover:scale-105 active:scale-95">
+        <span id="txt-start">開始冒險</span> <i class="fas fa-arrow-right ml-2"></i>
+      </button>
+      <p id="landing-footer" class="mt-6 text-sm text-slate-400">真正 Google 街景 360° • 建議用手機或平板玩</p>
+    </div>
+  </div>
+  <div id="game" class="hidden min-h-screen flex flex-col">
+    <header class="bg-slate-800/95 backdrop-blur sticky top-0 z-40 px-4 py-3 flex items-center justify-between border-b border-slate-700 shrink-0">
+      <div class="flex items-center gap-3">
+        <button onclick="showMap()" class="text-sky-300 hover:text-white"><i class="fas fa-map text-xl"></i></button>
+        <div>
+          <div id="loc-name" class="font-bold text-lg leading-tight">載入中...</div>
+          <div id="loc-sub" class="text-xs text-slate-400">第 1 站</div>
+        </div>
+      </div>
+      <button onclick="togglePostcard()" class="relative bg-amber-600 hover:bg-amber-500 px-4 py-2 rounded-full font-medium text-sm flex items-center gap-2">
+        <i class="fas fa-envelope-open-text"></i>
+        <span id="txt-postcard">明信片</span>
+        <span id="stamp-count" class="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">0</span>
+      </button>
+    </header>
+    <div class="bg-slate-800/50 px-4 py-2 flex justify-center gap-2 shrink-0" id="progress-dots"></div>
+    <div id="map-container">
+      <div id="pano"></div>
+      <div id="mini-map-wrap">
+        <button type="button" id="btn-mini-toggle" title="放大／縮小地圖"><i class="fas fa-expand" id="mini-toggle-icon"></i></button>
+        <div id="mini-map"></div>
+      </div>
+      <div class="absolute bottom-4 left-0 right-0 flex justify-center gap-3 px-4 z-10">
+        <button onclick="prevLocation()" id="btn-prev" class="bg-black/70 hover:bg-black/90 text-white px-4 py-2.5 rounded-full backdrop-blur disabled:opacity-30 text-sm"><i class="fas fa-chevron-left"></i> <span id="txt-prev">上一站</span></button>
+        <button onclick="startQuiz()" id="btn-quiz" class="bg-amber-500 hover:bg-amber-400 text-slate-900 font-bold px-5 py-2.5 rounded-full shadow-lg text-sm"><i class="fas fa-question-circle"></i> <span id="txt-quiz">開始任務</span></button>
+        <button onclick="nextLocation()" id="btn-next" class="bg-black/70 hover:bg-black/90 text-white px-4 py-2.5 rounded-full backdrop-blur text-sm"><span id="txt-next">下一站</span> <i class="fas fa-chevron-right"></i></button>
+      </div>
+    </div>
+    <div class="bg-slate-800 p-4 border-t border-slate-700 shrink-0"><p id="loc-desc" class="text-slate-300 text-sm leading-relaxed">載入中...</p></div>
+  </div>
+  <div id="intro-modal" class="fixed inset-0 z-[60] hidden flex-col items-center justify-center bg-black/95 p-4">
+    <div class="w-full max-w-4xl flex flex-col items-center gap-4">
+      <div class="text-sm text-slate-300" id="intro-counter">1 / 1</div>
+      <div id="media-stage"></div>
+      <div class="flex items-center gap-3 flex-wrap justify-center">
+        <button type="button" id="btn-intro-prev" class="bg-slate-700 hover:bg-slate-600 px-5 py-2.5 rounded-full text-sm disabled:opacity-30"><i class="fas fa-chevron-left"></i> 前</button>
+        <button type="button" id="btn-intro-enter" class="bg-amber-500 hover:bg-amber-400 text-slate-900 font-bold px-6 py-2.5 rounded-full text-sm">進入景點 <i class="fas fa-arrow-right ml-1"></i></button>
+        <button type="button" id="btn-intro-next" class="bg-slate-700 hover:bg-slate-600 px-5 py-2.5 rounded-full text-sm disabled:opacity-30">後 <i class="fas fa-chevron-right"></i></button>
+      </div>
+    </div>
+  </div>
+  <div id="quiz-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/70 p-4">
+    <div class="quiz-card bg-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-600">
+      <div class="flex justify-between items-start mb-4">
+        <h3 id="quiz-title" class="text-xl font-bold text-amber-400">任務</h3>
+        <button onclick="closeQuiz()" class="text-slate-400 hover:text-white text-xl"><i class="fas fa-times"></i></button>
+      </div>
+      <p id="quiz-q" class="text-lg mb-5 leading-relaxed"></p>
+      <div id="quiz-options" class="space-y-3"></div>
+      <div id="quiz-feedback" class="mt-4 hidden text-center font-medium"></div>
+    </div>
+  </div>
+  <div id="postcard-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/80 p-4">
+    <div class="postcard rounded-xl max-w-sm w-full p-6 relative">
+      <button onclick="togglePostcard()" class="absolute top-3 right-3 text-amber-900 hover:text-amber-700 text-xl"><i class="fas fa-times"></i></button>
+      <h3 id="postcard-title" class="text-center text-amber-900 font-bold text-xl mb-1">地理明信片</h3>
+      <p id="postcard-sub" class="text-center text-amber-800 text-sm mb-5">Geog Stamp Quest</p>
+      <div class="grid grid-cols-3 gap-3 mb-4" id="stamp-grid"></div>
+      <p id="postcard-msg" class="text-center text-amber-900 text-sm">還有 <span id="remain">0</span> 個印等你收集！</p>
+    </div>
+  </div>
+  <div id="ending" class="fixed inset-0 z-50 hidden flex-col items-center justify-center bg-gradient-to-b from-amber-900 via-orange-800 to-slate-900 p-6 text-center overflow-y-auto">
+    <div class="w-full max-w-lg py-6">
+      <div id="ending-media-wrap" class="hidden"></div>
+      <div class="text-6xl mb-4">🎉</div>
+      <h2 id="ending-title" class="text-3xl font-bold mb-3">恭喜集齊所有印！</h2>
+      <p id="ending-desc" class="text-amber-100 mb-6 max-w-md mx-auto">你已經完成探索！明信片已經蓋滿印章，可以帶回家留念啦。</p>
+      <button onclick="location.reload()" id="btn-replay" class="bg-white text-amber-900 font-bold px-8 py-3 rounded-full hover:bg-amber-100 transition">再玩一次</button>
+    </div>
+  </div>
+  <div id="map-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/70 p-4">
+    <div class="bg-slate-800 rounded-2xl max-w-md w-full p-5">
+      <div class="flex justify-between mb-4">
+        <h3 id="map-title" class="font-bold text-lg">景點地圖</h3>
+        <button onclick="document.getElementById('map-modal').classList.add('hidden');document.getElementById('map-modal').classList.remove('flex')" class="text-slate-400"><i class="fas fa-times"></i></button>
+      </div>
+      <div id="map-list" class="space-y-2 text-sm"></div>
+    </div>
+  </div>
+  <script>
+    window.miniMapExpanded = false;
+    window.toggleMiniMap = function () {
+      var wrap = document.getElementById('mini-map-wrap');
+      var icon = document.getElementById('mini-toggle-icon');
+      if (!wrap) return;
+      window.miniMapExpanded = !window.miniMapExpanded;
+      if (window.miniMapExpanded) wrap.classList.add('expanded');
+      else wrap.classList.remove('expanded');
+      if (icon) icon.className = window.miniMapExpanded ? 'fas fa-compress' : 'fas fa-expand';
+      setTimeout(function () {
+        if (typeof google !== 'undefined' && window.miniMap) google.maps.event.trigger(window.miniMap, 'resize');
+      }, 280);
+    };
+    document.addEventListener('DOMContentLoaded', function () {
+      var btn = document.getElementById('btn-mini-toggle');
+      if (btn) btn.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); window.toggleMiniMap(); });
+    });
+  </script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyC1ISPgkY3BsV7RM3BD41tPvewUPdOUJps&callback=initPano&v=weekly" async defer></script>
+  <script src="game.js?v=7"></script>
+</body>
+</html>
