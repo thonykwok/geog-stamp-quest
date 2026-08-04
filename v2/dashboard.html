@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>我的程式 | Geog Stamp Quest v2</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap');
+    body { font-family: 'Noto Sans TC', system-ui, sans-serif; }
+  </style>
+</head>
+<body class="min-h-screen bg-slate-50 text-slate-800">
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-20">
+    <div class="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <span class="text-2xl">🗺️</span>
+        <div>
+          <div class="font-bold text-lg leading-tight">我的程式</div>
+          <div class="text-xs text-slate-500">Geog Stamp Quest v2</div>
+        </div>
+      </div>
+      <div class="flex items-center gap-3">
+        <div id="user-info" class="text-sm text-slate-600 hidden sm:block"></div>
+        <button id="btn-logout" class="text-sm text-slate-500 hover:text-red-600 px-3 py-1.5 rounded-lg hover:bg-red-50">
+          <i class="fas fa-sign-out-alt mr-1"></i>登出
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-4xl mx-auto px-4 py-6">
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
+      <div>
+        <h1 class="text-xl font-bold">程式列表</h1>
+        <p class="text-sm text-slate-500">每個程式有獨立遊玩連結，可分享俾學生</p>
+      </div>
+      <button id="btn-new" class="bg-sky-600 hover:bg-sky-500 text-white font-medium px-4 py-2.5 rounded-xl shadow-sm flex items-center gap-2">
+        <i class="fas fa-plus"></i> 新增程式
+      </button>
+    </div>
+
+    <div id="status" class="text-sm text-slate-500 mb-4"></div>
+    <div id="list" class="space-y-3"></div>
+  </main>
+
+  <!-- New / Rename modal -->
+  <div id="modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40 p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl">
+      <h2 id="modal-title" class="font-bold text-lg mb-4">新增程式</h2>
+      <label class="block text-sm text-slate-600 mb-1">程式名稱</label>
+      <input id="f-name" class="w-full border border-slate-200 rounded-xl px-3 py-2.5 mb-3" placeholder="例如：長洲地理明信片" />
+      <label class="block text-sm text-slate-600 mb-1">科目（選填）</label>
+      <input id="f-subject" class="w-full border border-slate-200 rounded-xl px-3 py-2.5 mb-4" placeholder="例如：地理 / 通識" />
+      <input type="hidden" id="f-id" />
+      <div class="flex justify-end gap-2">
+        <button id="btn-cancel" class="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100">取消</button>
+        <button id="btn-save" class="px-4 py-2 rounded-xl bg-sky-600 text-white hover:bg-sky-500">儲存</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <script src="firebase-config.js"></script>
+  <script>
+    const db = firebase.firestore();
+    const statusEl = document.getElementById('status');
+    const listEl = document.getElementById('list');
+    let currentUser = null;
+
+    function playUrl(id) {
+      const base = location.href.replace(/dashboard\.html.*$/, '');
+      return base + 'play.html?p=' + id;
+    }
+
+    function showModal(edit) {
+      document.getElementById('modal').classList.remove('hidden');
+      document.getElementById('modal').classList.add('flex');
+      document.getElementById('modal-title').textContent = edit ? '編輯程式' : '新增程式';
+      document.getElementById('f-id').value = edit ? edit.id : '';
+      document.getElementById('f-name').value = edit ? edit.name : '';
+      document.getElementById('f-subject').value = edit ? (edit.subject || '') : '';
+    }
+    function hideModal() {
+      document.getElementById('modal').classList.add('hidden');
+      document.getElementById('modal').classList.remove('flex');
+    }
+
+    async function loadPrograms() {
+      statusEl.textContent = '載入中…';
+      listEl.innerHTML = '';
+      try {
+        const snap = await db.collection('programs')
+          .where('ownerUid', '==', currentUser.uid)
+          .get();
+        // Sort client-side (avoid composite index requirement)
+        const docs = snap.docs.slice().sort((a, b) => {
+          const ta = a.data().createdAt && a.data().createdAt.toMillis ? a.data().createdAt.toMillis() : 0;
+          const tb = b.data().createdAt && b.data().createdAt.toMillis ? b.data().createdAt.toMillis() : 0;
+          return tb - ta;
+        });
+        if (!docs.length) {
+          statusEl.textContent = '尚未有程式，撳右上角「新增程式」開始。';
+          return;
+        }
+        statusEl.textContent = '共 ' + docs.length + ' 個程式';
+        docs.forEach(doc => {
+          const d = doc.data();
+          const id = doc.id;
+          const url = playUrl(id);
+          const card = document.createElement('div');
+          card.className = 'bg-white rounded-2xl border border-slate-200 p-4 shadow-sm';
+          card.innerHTML =
+            '<div class="flex flex-wrap items-start justify-between gap-3">' +
+              '<div class="min-w-0 flex-1">' +
+                '<div class="font-semibold text-lg">' + escapeHtml(d.name || '未命名') + '</div>' +
+                (d.subject ? '<div class="text-sm text-sky-600 mt-0.5"><i class="fas fa-book mr-1"></i>' + escapeHtml(d.subject) + '</div>' : '') +
+                '<div class="mt-2 flex items-center gap-2 text-xs text-slate-500 break-all">' +
+                  '<span class="bg-slate-100 rounded-lg px-2 py-1 font-mono select-all">' + url + '</span>' +
+                '</div>' +
+              '</div>' +
+              '<div class="flex flex-wrap gap-2">' +
+                '<button data-copy="' + id + '" class="text-sm px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200" title="複製連結"><i class="fas fa-copy"></i></button>' +
+                '<a href="play.html?p=' + id + '" target="_blank" class="text-sm px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100"><i class="fas fa-play mr-1"></i>遊玩</a>' +
+                '<a href="admin.html?p=' + id + '" class="text-sm px-3 py-1.5 rounded-lg bg-sky-50 text-sky-700 hover:bg-sky-100"><i class="fas fa-cog mr-1"></i>後台</a>' +
+                '<button data-edit="' + id + '" class="text-sm px-3 py-1.5 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100"><i class="fas fa-pen"></i></button>' +
+                '<button data-del="' + id + '" class="text-sm px-3 py-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100"><i class="fas fa-trash"></i></button>' +
+              '</div>' +
+            '</div>';
+          listEl.appendChild(card);
+
+          card.querySelector('[data-copy]').onclick = () => {
+            navigator.clipboard.writeText(url).then(() => {
+              statusEl.innerHTML = '<span class="text-emerald-600">已複製遊玩連結</span>';
+            });
+          };
+          card.querySelector('[data-edit]').onclick = () => {
+            showModal({ id: id, name: d.name, subject: d.subject });
+          };
+          card.querySelector('[data-del]').onclick = async () => {
+            if (!confirm('確定刪除「' + (d.name || '') + '」？景點資料會一併刪除，無法復原。')) return;
+            statusEl.textContent = '刪除中…';
+            try {
+              const locs = await db.collection('programs').doc(id).collection('locations').get();
+              const batch = db.batch();
+              locs.docs.forEach(l => batch.delete(l.ref));
+              batch.delete(db.collection('programs').doc(id));
+              await batch.commit();
+              loadPrograms();
+            } catch (e) {
+              statusEl.textContent = '刪除失敗：' + e.message;
+            }
+          };
+        });
+      } catch (e) {
+        statusEl.textContent = '載入失敗：' + e.message;
+        console.error(e);
+      }
+    }
+
+    function escapeHtml(s) {
+      return String(s || '').replace(/&/g,'&').replace(/</g,'<').replace(/>/g,'>').replace(/"/g,'"');
+    }
+
+    document.getElementById('btn-new').onclick = () => showModal(null);
+    document.getElementById('btn-cancel').onclick = hideModal;
+    document.getElementById('btn-save').onclick = async () => {
+      const name = document.getElementById('f-name').value.trim();
+      const subject = document.getElementById('f-subject').value.trim();
+      const id = document.getElementById('f-id').value;
+      if (!name) { alert('請輸入程式名稱'); return; }
+      try {
+        if (id) {
+          await db.collection('programs').doc(id).update({ name, subject });
+        } else {
+          await db.collection('programs').add({
+            name,
+            subject,
+            ownerUid: currentUser.uid,
+            ownerEmail: currentUser.email,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            settings: {
+              siteTitle: name,
+              landingTitle: name,
+              landingSubtitle: 'Geog Stamp Quest',
+              landingDesc: '第一身視角探索，完成任務，集齊明信片上的印章！',
+              postcardTitle: name
+            }
+          });
+        }
+        hideModal();
+        loadPrograms();
+      } catch (e) {
+        alert('儲存失敗：' + e.message);
+      }
+    };
+
+    document.getElementById('btn-logout').onclick = () => firebase.auth().signOut().then(() => location.href = 'index.html');
+
+    firebase.auth().onAuthStateChanged(user => {
+      if (!user) {
+        location.href = 'index.html';
+        return;
+      }
+      currentUser = user;
+      document.getElementById('user-info').textContent = user.email || user.displayName || '';
+      loadPrograms();
+    });
+  </script>
+</body>
+</html>
