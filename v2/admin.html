@@ -27,6 +27,35 @@
 
   <main class="max-w-3xl mx-auto px-4 py-6">
     <div id="status" class="text-sm text-slate-500 mb-4"></div>
+
+    <!-- 遊戲設定 -->
+    <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm mb-6">
+      <h2 class="font-bold text-lg mb-1 flex items-center gap-2"><i class="fas fa-cog text-slate-500"></i> 遊戲設定（前台所有文字）</h2>
+      <p class="text-xs text-slate-400 mb-4">呢度改嘅字會出現喺學生遊玩頁面</p>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div><label class="text-xs text-slate-500">中文名稱</label><input id="s-landingTitle" class="w-full border rounded-lg px-2.5 py-1.5 text-sm"></div>
+        <div><label class="text-xs text-slate-500">英文副標題</label><input id="s-landingSubtitle" class="w-full border rounded-lg px-2.5 py-1.5 text-sm"></div>
+        <div class="sm:col-span-2"><label class="text-xs text-slate-500">開頭說明</label><input id="s-landingDesc" class="w-full border rounded-lg px-2.5 py-1.5 text-sm"></div>
+        <div><label class="text-xs text-slate-500">Emoji</label><input id="s-landingEmoji" class="w-full border rounded-lg px-2.5 py-1.5 text-sm"></div>
+        <div><label class="text-xs text-slate-500">開始按鈕</label><input id="s-txtStart" class="w-full border rounded-lg px-2.5 py-1.5 text-sm"></div>
+        <div class="sm:col-span-2"><label class="text-xs text-slate-500">開頭頁底部提示</label><input id="s-landingFooter" class="w-full border rounded-lg px-2.5 py-1.5 text-sm"></div>
+        <div><label class="text-xs text-slate-500">明信片按鈕</label><input id="s-txtPostcard" class="w-full border rounded-lg px-2.5 py-1.5 text-sm"></div>
+        <div><label class="text-xs text-slate-500">上一站</label><input id="s-txtPrev" class="w-full border rounded-lg px-2.5 py-1.5 text-sm"></div>
+        <div><label class="text-xs text-slate-500">下一站</label><input id="s-txtNext" class="w-full border rounded-lg px-2.5 py-1.5 text-sm"></div>
+        <div><label class="text-xs text-slate-500">開始任務</label><input id="s-txtQuiz" class="w-full border rounded-lg px-2.5 py-1.5 text-sm"></div>
+        <div><label class="text-xs text-slate-500">已完成</label><input id="s-txtDone" class="w-full border rounded-lg px-2.5 py-1.5 text-sm"></div>
+        <div><label class="text-xs text-slate-500">進度格式（用 {i} 同 {total}）</label><input id="s-progressFormat" class="w-full border rounded-lg px-2.5 py-1.5 text-sm" placeholder="第 {i} / {total} 站"></div>
+        <div><label class="text-xs text-slate-500">明信片標題</label><input id="s-postcardTitle" class="w-full border rounded-lg px-2.5 py-1.5 text-sm"></div>
+        <div><label class="text-xs text-slate-500">明信片剩餘提示（用 {n}）</label><input id="s-postcardMsg" class="w-full border rounded-lg px-2.5 py-1.5 text-sm"></div>
+        <div><label class="text-xs text-slate-500">通關標題（用 {n}）</label><input id="s-endingTitle" class="w-full border rounded-lg px-2.5 py-1.5 text-sm"></div>
+        <div><label class="text-xs text-slate-500">通關說明</label><input id="s-endingDesc" class="w-full border rounded-lg px-2.5 py-1.5 text-sm"></div>
+        <div><label class="text-xs text-slate-500">再玩一次</label><input id="s-txtReplay" class="w-full border rounded-lg px-2.5 py-1.5 text-sm"></div>
+      </div>
+      <button type="button" id="btn-save-settings" class="mt-4 bg-amber-500 hover:bg-amber-400 text-slate-900 font-medium px-4 py-2 rounded-xl text-sm">
+        <i class="fas fa-save mr-1"></i> 儲存設定
+      </button>
+    </div>
+
     <div class="flex justify-between items-center mb-4">
       <h2 class="font-bold">景點</h2>
       <button id="btn-add" class="text-sky-600 text-sm font-medium"><i class="fas fa-plus mr-1"></i>新增景點</button>
@@ -47,19 +76,55 @@
     let currentUser = null;
     let currentData = [];
     let programMeta = null;
+    let settings = {};
+
+    const DEFAULT_SETTINGS = {
+      landingTitle: '地理明信片',
+      landingSubtitle: 'Geog Stamp Quest',
+      landingDesc: '第一身視角探索，完成任務，集齊明信片上的印章！',
+      landingEmoji: '🏝️',
+      txtStart: '開始冒險',
+      landingFooter: '真正 Google 街景 360° · 建議用手機或平板玩',
+      txtPostcard: '明信片',
+      txtPrev: '上一站',
+      txtNext: '下一站',
+      txtQuiz: '開始任務',
+      txtDone: '已完成',
+      progressFormat: '第 {i} / {total} 站',
+      postcardTitle: '地理明信片',
+      postcardMsg: '還有 {n} 個印等你收集！',
+      endingTitle: '恭喜集齊 {n} 個印！',
+      endingDesc: '你已經完成探索！明信片已經蓋滿印章。',
+      txtReplay: '再玩一次'
+    };
 
     function esc(s) {
       return String(s || '').replace(/&/g,'&').replace(/</g,'<').replace(/>/g,'>').replace(/"/g,'"');
+    }
+
+    function fillSettingsForm(s) {
+      settings = Object.assign({}, DEFAULT_SETTINGS, s || {});
+      Object.keys(DEFAULT_SETTINGS).forEach(function (k) {
+        var el = document.getElementById('s-' + k);
+        if (el) el.value = settings[k] != null ? settings[k] : DEFAULT_SETTINGS[k];
+      });
+    }
+
+    function readSettingsForm() {
+      var out = {};
+      Object.keys(DEFAULT_SETTINGS).forEach(function (k) {
+        var el = document.getElementById('s-' + k);
+        out[k] = el ? el.value : DEFAULT_SETTINGS[k];
+      });
+      return out;
     }
 
     function parseStreetViewUrl(url) {
       const m = String(url).match(/@(-?\d+\.?\d*),(-?\d+\.?\d*),3a,(\d+\.?\d*)y,(\d+\.?\d*)h,(-?\d+\.?\d*)t/);
       if (!m) return null;
       return {
-        lat: parseFloat(m[1]),
-        lng: parseFloat(m[2]),
-        heading: parseFloat(m[4]),
-        pitch: parseFloat(m[5]) - 90,
+        lat: parseFloat(m[1]), lng: parseFloat(m[2]),
+        heading: parseFloat(m[4]), pitch: parseFloat(m[5]) - 90,
         zoom: Math.max(0, (parseFloat(m[3]) - 75) / 15)
       };
     }
@@ -153,7 +218,6 @@
         });
         currentData[i].quizzes = [];
         card.querySelectorAll('.quizzes-box > [data-qi]').forEach(block => {
-          const qi = Number(block.getAttribute('data-qi'));
           const title = (block.querySelector('[data-f="title"]') || {}).value || '';
           const q = (block.querySelector('[data-f="q"]') || {}).value || '';
           const answer = Number((block.querySelector('[data-f="answer"]') || {}).value || 0);
@@ -221,11 +285,25 @@
       renderList();
     };
 
+    document.getElementById('btn-save-settings').onclick = async () => {
+      const status = document.getElementById('status');
+      status.textContent = '儲存設定中…';
+      try {
+        settings = readSettingsForm();
+        await db.collection('programs').doc(programId).update({ settings: settings });
+        status.innerHTML = '<span class="text-emerald-600">✅ 遊戲設定已儲存</span>';
+      } catch (e) {
+        status.textContent = '設定儲存失敗：' + e.message;
+      }
+    };
+
     document.getElementById('btn-save').onclick = async () => {
       collectFromDom();
       const status = document.getElementById('status');
       status.textContent = '儲存中…';
       try {
+        settings = readSettingsForm();
+        await db.collection('programs').doc(programId).update({ settings: settings });
         const col = db.collection('programs').doc(programId).collection('locations');
         const old = await col.get();
         const batch = db.batch();
@@ -242,7 +320,7 @@
           });
         });
         await batch.commit();
-        status.innerHTML = '<span class="text-emerald-600">✅ 已儲存 ' + currentData.length + ' 個景點</span>';
+        status.innerHTML = '<span class="text-emerald-600">✅ 已儲存設定 + ' + currentData.length + ' 個景點</span>';
       } catch (e) {
         status.textContent = '儲存失敗：' + e.message;
       }
@@ -259,6 +337,7 @@
       }
       document.getElementById('prog-name').textContent = programMeta.name || '後台';
       document.getElementById('link-play').href = 'play.html?p=' + programId;
+      fillSettingsForm(programMeta.settings);
       const snap = await db.collection('programs').doc(programId).collection('locations').orderBy('order').get();
       currentData = snap.docs.map(d => {
         const x = d.data();
