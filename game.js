@@ -11,12 +11,25 @@ const defaultSettings = {
   title: "地理明信片",
   subtitle: "Geog Stamp Quest",
   description: "第一身視角探索，完成任務，集齊明信片上的印章！",
-  emoji: "🏝️"
+  emoji: "🏝️",
+  startBtn: "開始冒險",
+  footerHint: "真正 Google 街景 360° • 建議用手機或平板玩",
+  postcardBtn: "明信片",
+  prevBtn: "上一站",
+  nextBtn: "下一站",
+  quizBtn: "開始任務",
+  quizDone: "已完成",
+  mapTitle: "景點地圖",
+  postcardRemain: "還有 {n} 個印等你收集！",
+  endingTitle: "恭喜集齊 {n} 個印！",
+  endingDesc: "你已經完成探索！明信片已經蓋滿印章，可以帶回家留念啦。",
+  replayBtn: "再玩一次",
+  progressFormat: "第 {i} / {total} 站"
 };
 
 const defaultLocations = [
   {
-    name: "示例景點 1", sub: "第 1 站",
+    name: "示例景點 1", sub: "",
     desc: "請在後台修改此景點資料。",
     lat: 22.2086, lng: 114.0284, heading: 90, pitch: 0, zoom: 1,
     stampEmoji: "📍", stampName: "景點1",
@@ -42,17 +55,56 @@ function ensureCollectedArray() {
   if (collected.length > locations.length) collected = collected.slice(0, locations.length);
 }
 
+function fmt(template, vars) {
+  let s = template || '';
+  Object.keys(vars || {}).forEach(k => {
+    s = s.replace(new RegExp('\\{' + k + '\\}', 'g'), String(vars[k]));
+  });
+  return s;
+}
+
 function applySettings() {
+  const n = locations.length;
   document.getElementById('page-title').textContent = settings.title + ' | ' + settings.subtitle;
   document.getElementById('landing-title').textContent = settings.title;
   document.getElementById('landing-subtitle').textContent = settings.subtitle;
   document.getElementById('landing-emoji').textContent = settings.emoji || '🏝️';
-  const n = locations.length;
   document.getElementById('landing-desc').textContent =
     settings.description || `第一身視角探索，完成 ${n} 個任務，集齊明信片上的印章！`;
+  const startEl = document.getElementById('txt-start');
+  if (startEl) startEl.textContent = settings.startBtn || '開始冒險';
+  const footer = document.getElementById('landing-footer');
+  if (footer) footer.textContent = settings.footerHint || defaultSettings.footerHint;
+  const pc = document.getElementById('txt-postcard');
+  if (pc) pc.textContent = settings.postcardBtn || '明信片';
+  const prev = document.getElementById('txt-prev');
+  if (prev) prev.textContent = settings.prevBtn || '上一站';
+  const next = document.getElementById('txt-next');
+  if (next) next.textContent = settings.nextBtn || '下一站';
   document.getElementById('postcard-title').textContent = settings.title;
   document.getElementById('postcard-sub').textContent = settings.subtitle;
-  document.getElementById('ending-title').textContent = `恭喜集齊 ${n} 個印！`;
+  const mapT = document.getElementById('map-title');
+  if (mapT) mapT.textContent = settings.mapTitle || '景點地圖';
+  const endTitle = document.getElementById('ending-title');
+  if (endTitle) endTitle.textContent = fmt(settings.endingTitle || defaultSettings.endingTitle, { n });
+  const endDesc = document.getElementById('ending-desc');
+  if (endDesc) endDesc.textContent = settings.endingDesc || defaultSettings.endingDesc;
+  const replay = document.getElementById('btn-replay');
+  if (replay) replay.textContent = settings.replayBtn || '再玩一次';
+  updatePostcardMsg();
+}
+
+function updatePostcardMsg() {
+  const remain = locations.length - collected.filter(Boolean).length;
+  const msg = document.getElementById('postcard-msg');
+  if (!msg) return;
+  const tpl = settings.postcardRemain || defaultSettings.postcardRemain;
+  msg.innerHTML = fmt(tpl, { n: remain }).replace(String(remain), `<span id="remain">${remain}</span>`);
+}
+
+function progressLabel(i) {
+  const tpl = settings.progressFormat || defaultSettings.progressFormat;
+  return fmt(tpl, { i: i + 1, total: locations.length });
 }
 
 function syncMiniMapToPos(pos, title) {
@@ -61,10 +113,8 @@ function syncMiniMapToPos(pos, title) {
   const lng = typeof pos.lng === 'function' ? pos.lng() : Number(pos.lng);
   if (isNaN(lat) || isNaN(lng)) return;
   const p = { lat, lng };
-
   const el = document.getElementById('mini-map');
   if (!el) return;
-
   if (!miniMap) {
     miniMap = new google.maps.Map(el, {
       center: p, zoom: 15, mapTypeId: 'roadmap',
@@ -91,7 +141,6 @@ function updateMiniMap(loc) {
 function attachPanoSync() {
   if (!panorama || panoListenerAttached || typeof google === 'undefined') return;
   panoListenerAttached = true;
-  // 街景向前／後行時同步小地圖
   panorama.addListener('position_changed', function () {
     const pos = panorama.getPosition();
     if (pos) syncMiniMapToPos(pos);
@@ -102,12 +151,10 @@ async function loadFromFirestore() {
   try {
     if (typeof firebase === 'undefined') return;
     const db = firebase.firestore();
-
     const settingsDoc = await db.collection('config').doc('settings').get();
     if (settingsDoc.exists) {
       settings = { ...defaultSettings, ...settingsDoc.data() };
     }
-
     const snap = await db.collection('locations').orderBy('order').get();
     if (!snap.empty) {
       locations = snap.docs.map(d => {
@@ -157,8 +204,7 @@ function rebuildPostcard() {
       <div class="text-3xl mb-1 opacity-30">${loc.stampEmoji || '📍'}</div>
       <div class="text-xs text-amber-900">${loc.stampName || '景點'}</div>
     </div>`).join('');
-  const remainEl = document.getElementById('remain');
-  if (remainEl) remainEl.textContent = locations.length;
+  updatePostcardMsg();
 }
 
 function startGame() {
@@ -178,7 +224,8 @@ function loadLocation(i) {
   quizLocked = false;
   const loc = locations[i];
   document.getElementById('loc-name').textContent = loc.name;
-  document.getElementById('loc-sub').textContent = loc.sub || `第 ${i + 1} / ${locations.length} 站`;
+  // 永遠用實際景點數量顯示進度，唔再被後台 sub 覆蓋
+  document.getElementById('loc-sub').textContent = progressLabel(i);
   document.getElementById('loc-desc').textContent = loc.desc;
 
   const z = (loc.zoom !== undefined && loc.zoom !== null && !isNaN(Number(loc.zoom))) ? Number(loc.zoom) : 1;
@@ -202,6 +249,8 @@ function loadLocation(i) {
     updateMiniMap(loc);
   }
 
+  // 進度點：必須先 rebuild 再更新 class（景點數量可能變）
+  rebuildProgressDots();
   document.querySelectorAll('.progress-dot').forEach((dot, idx) => {
     dot.classList.remove('active', 'done');
     if (idx < i) dot.classList.add('done');
@@ -212,15 +261,17 @@ function loadLocation(i) {
   document.getElementById('btn-next').disabled = i === locations.length - 1;
 
   const quizBtn = document.getElementById('btn-quiz');
+  const quizLabel = settings.quizBtn || '開始任務';
+  const doneLabel = settings.quizDone || '已完成';
   if (collected[i]) {
-    quizBtn.innerHTML = '<i class="fas fa-check"></i> 已完成';
+    quizBtn.innerHTML = `<i class="fas fa-check"></i> ${doneLabel}`;
     quizBtn.classList.remove('bg-amber-500', 'hover:bg-amber-400');
     quizBtn.classList.add('bg-emerald-600');
   } else {
     const qCount = (loc.quizzes || []).length;
     quizBtn.innerHTML = qCount > 1
-      ? `<i class="fas fa-question-circle"></i> 開始任務 (${qCount}題)`
-      : '<i class="fas fa-question-circle"></i> 開始任務';
+      ? `<i class="fas fa-question-circle"></i> ${quizLabel} (${qCount}題)`
+      : `<i class="fas fa-question-circle"></i> ${quizLabel}`;
     quizBtn.classList.add('bg-amber-500', 'hover:bg-amber-400');
     quizBtn.classList.remove('bg-emerald-600');
   }
@@ -281,25 +332,18 @@ function checkAnswer(idx) {
   const quizzes = locations[current].quizzes || [];
   const q = quizzes[currentQuizIndex];
   if (!q) return;
-
   const feedback = document.getElementById('quiz-feedback');
   feedback.classList.remove('hidden');
-
   const correctIndex = Number(q.answer);
   const chosen = Number(idx);
-
   if (chosen === correctIndex) {
     quizLocked = true;
     lockQuizButtons();
     feedback.textContent = '✅ 答對啦！';
     feedback.className = 'mt-4 text-center font-medium text-emerald-400';
-
     const isLast = currentQuizIndex >= quizzes.length - 1;
     if (!isLast) {
-      setTimeout(() => {
-        currentQuizIndex++;
-        showCurrentQuiz();
-      }, 900);
+      setTimeout(() => { currentQuizIndex++; showCurrentQuiz(); }, 900);
     } else {
       const total = quizzes.length;
       feedback.textContent = total > 1
@@ -330,8 +374,7 @@ function updateStamps() {
   ensureCollectedArray();
   const count = collected.filter(Boolean).length;
   document.getElementById('stamp-count').textContent = count;
-  const remainEl = document.getElementById('remain');
-  if (remainEl) remainEl.textContent = locations.length - count;
+  updatePostcardMsg();
   collected.forEach((done, i) => {
     const el = document.querySelector(`[data-stamp="${i}"]`);
     if (!el || !done) return;
@@ -350,7 +393,9 @@ function togglePostcard() {
 }
 
 function showEnding() {
-  document.getElementById('ending-title').textContent = `恭喜集齊 ${locations.length} 個印！`;
+  const n = locations.length;
+  document.getElementById('ending-title').textContent =
+    fmt(settings.endingTitle || defaultSettings.endingTitle, { n });
   document.getElementById('ending').classList.remove('hidden');
   document.getElementById('ending').classList.add('flex');
 }
