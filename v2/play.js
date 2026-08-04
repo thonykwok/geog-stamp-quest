@@ -25,17 +25,21 @@
   let introIndex = 0;
   let introPending = 0;
 
-  function showSvLoading(msg, sub) {
+  function showSvLoading(msg, sub, opts) {
     var el = document.getElementById('sv-loading');
     var t = document.getElementById('sv-loading-text');
     var s = document.getElementById('sv-loading-sub');
+    var bar = document.getElementById('sv-bar-track');
     if (t) t.textContent = msg || '載入街景中…';
     if (s) s.textContent = sub != null ? sub : '首次載入可能需要幾秒';
+    if (bar) bar.style.display = (opts && opts.hideBar) ? 'none' : '';
     if (el) el.classList.add('show');
   }
   function hideSvLoading() {
     var el = document.getElementById('sv-loading');
+    var bar = document.getElementById('sv-bar-track');
     if (el) el.classList.remove('show');
+    if (bar) bar.style.display = '';
   }
 
   window.initPano = function () {
@@ -228,7 +232,6 @@
       panorama.setPosition(latLng);
       panorama.setPov({ heading: pov.heading, pitch: pov.pitch });
       if (pov.zoom != null) panorama.setZoom(pov.zoom);
-      // hide after short delay even if status is slow
       setTimeout(hideSvLoading, 2500);
     }
 
@@ -237,7 +240,6 @@
       return;
     }
 
-    // Find nearest panorama within 150m, then 500m
     svService.getPanorama({ location: target, radius: 150 }, function (data, status) {
       if (status === 'OK' && data && data.location) {
         applyPano(data.location.latLng);
@@ -249,19 +251,12 @@
           applyPano(data2.location.latLng);
           return;
         }
-        // No coverage
         showSvLoading(
           '此位置暫無 Google 街景',
-          '偏遠郊野／離島可能未有覆蓋。仍可答題；或於後台改用有街景的座標。'
+          '偏遠郊野／離島可能未有覆蓋。仍可答題；或於後台改用有街景的座標。',
+          { hideBar: true }
         );
-        // keep overlay visible with message (not a spinner forever)
-        var spin = document.querySelector('#sv-loading .spinner');
-        if (spin) spin.style.display = 'none';
-        setTimeout(function () {
-          hideSvLoading();
-          if (spin) spin.style.display = '';
-        }, 4000);
-        // still try setPosition so UI doesn't break
+        setTimeout(hideSvLoading, 4000);
         try { panorama.setPosition(target); } catch (e) {}
       });
     });
