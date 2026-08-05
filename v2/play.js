@@ -1,4 +1,4 @@
-/* v2 play logic – program from ?p= */
+/* v2 play – dual quiz modes: retry | oneshot */
 (function () {
   const params = new URLSearchParams(location.search);
   const programId = params.get('p');
@@ -13,6 +13,8 @@
   let settings = {};
   let current = 0;
   let collected = [];
+  let attempted = [];
+  let quizCorrectCount = 0;
   let quizIndex = 0;
   let panorama = null;
   let miniMap = null;
@@ -20,7 +22,6 @@
   let mapsReady = false;
   let dataReady = false;
   let svService = null;
-
   let introList = [];
   let introIndex = 0;
   let introPending = 0;
@@ -42,18 +43,23 @@
     if (bar) bar.style.display = '';
   }
 
+  function isOneShot() {
+    return (settings.quizMode || 'retry') === 'oneshot';
+  }
+  function stationFinished(i) {
+    return isOneShot() ? !!attempted[i] : !!collected[i];
+  }
+
   function updateActionButtons() {
     var quizBtn = document.getElementById('btn-quiz');
     var quizLabel = document.getElementById('btn-quiz-label');
     var nextBtn = document.getElementById('btn-next');
     var prevBtn = document.getElementById('btn-prev');
     if (!quizBtn || !nextBtn) return;
-
-    var done = !!collected[current];
+    var done = stationFinished(current);
     var atEnd = current >= locations.length - 1;
     var txtQuiz = (settings && settings.txtQuiz) || '開始任務';
     var txtDone = (settings && settings.txtDone) || '已完成';
-
     quizBtn.classList.remove('btn-glow', 'btn-glow-amber', 'btn-done', 'btn-idle');
     if (done) {
       quizBtn.classList.add('btn-done');
@@ -64,15 +70,10 @@
       if (quizLabel) quizLabel.textContent = txtQuiz;
       quizBtn.disabled = false;
     }
-
     nextBtn.classList.remove('btn-glow', 'btn-glow-sky', 'btn-idle', 'btn-done');
     nextBtn.disabled = atEnd;
-    if (!atEnd && done) {
-      nextBtn.classList.add('btn-glow', 'btn-glow-sky');
-    } else {
-      nextBtn.classList.add('btn-idle');
-    }
-
+    if (!atEnd && done) nextBtn.classList.add('btn-glow', 'btn-glow-sky');
+    else nextBtn.classList.add('btn-idle');
     if (prevBtn) prevBtn.disabled = current <= 0;
   }
 
@@ -90,18 +91,20 @@
       p.style.animationDelay = (Math.random() * 0.8) + 's';
       p.style.width = (6 + Math.random() * 8) + 'px';
       p.style.height = (8 + Math.random() * 10) + 'px';
-      p.style.opacity = '0.9';
       layer.appendChild(p);
     }
   }
 
   function showEnding() {
+    var got = collected.filter(Boolean).length;
     var n = locations.length;
-    var titleTpl = (settings.endingTitle || '恭喜集齊 {n} 個印！').replace('{n}', String(n));
-    var desc = settings.endingDesc || '你已經完成探索！明信片已經蓋滿印章。';
+    var titleTpl = (settings.endingTitle || '恭喜集齊 {n} 個印！').replace('{n}', String(got));
+    var desc = settings.endingDesc || '你已經完成探索！明信片顯示你全對的景點印章。';
+    if (isOneShot() && got < n) {
+      desc = '你已完成所有站點。全對的景點已蓋印（' + got + ' / ' + n + '）。';
+    }
     var pTitle = settings.postcardTitle || settings.landingTitle || '地理明信片';
     var replay = settings.txtReplay || '再玩一次';
-
     var titleEl = document.getElementById('ending-title');
     var descEl = document.getElementById('ending-desc');
     var pTitleEl = document.getElementById('ending-postcard-title');
@@ -110,35 +113,31 @@
     if (descEl) descEl.textContent = desc;
     if (pTitleEl) pTitleEl.textContent = pTitle;
     if (replayBtn) replayBtn.textContent = replay;
-
     var grid = document.getElementById('ending-stamp-grid');
     if (grid) {
-      grid.innerHTML = locations.map(function (loc) {
-        return '<div class="ending-stamp stamp collected text-center p-2 rounded-lg bg-amber-100">' +
-          '<div class="text-2xl">' + (loc.stampEmoji || '📍') + '</div>' +
+      grid.innerHTML = locations.map(function (loc, i) {
+        var ok = !!collected[i];
+        return '<div class="ending-stamp stamp ' + (ok ? 'collected' : '') + ' text-center p-2 rounded-lg ' + (ok ? 'bg-amber-100' : 'bg-amber-50/40 opacity-40') + '">' +
+          '<div class="text-2xl">' + (ok ? (loc.stampEmoji || '📍') : '⬜') + '</div>' +
           '<div class="text-xs text-amber-900 mt-1">' + (loc.stampName || loc.name) + '</div></div>';
       }).join('');
     }
-
     var ending = document.getElementById('ending');
     ending.classList.remove('hidden');
     ending.classList.add('flex');
-
     spawnConfetti();
-
     var stamps = grid ? grid.querySelectorAll('.ending-stamp') : [];
     stamps.forEach(function (el, i) {
       setTimeout(function () {
-        el.classList.add('show');
+        if (collected[i]) el.classList.add('show');
+        else { el.style.opacity = '0.45'; el.style.transform = 'scale(1)'; }
       }, 400 + i * 180);
     });
   }
 
   window.initPano = function () {
     mapsReady = true;
-    try {
-      svService = new google.maps.StreetViewService();
-    } catch (e) {}
+    try { svService = new google.maps.StreetViewService(); } catch (e) {}
   };
 
   async function loadProgram() {
@@ -157,27 +156,22 @@
       var em = document.getElementById('landing-emoji');
       if (em) em.textContent = settings.landingEmoji;
     }
-
     const snap = await db.collection('programs').doc(programId).collection('locations').orderBy('order').get();
     locations = snap.docs.map(d => {
       const x = d.data();
       return {
-        name: x.name || '景點',
-        sub: x.sub || '',
-        desc: x.desc || '',
-        lat: Number(x.lat) || 22.2086,
-        lng: Number(x.lng) || 114.0284,
-        heading: Number(x.heading) || 0,
-        pitch: Number(x.pitch) || 0,
+        name: x.name || '景點', sub: x.sub || '', desc: x.desc || '',
+        lat: Number(x.lat) || 22.2086, lng: Number(x.lng) || 114.0284,
+        heading: Number(x.heading) || 0, pitch: Number(x.pitch) || 0,
         zoom: x.zoom != null ? Number(x.zoom) : 1,
-        stampEmoji: x.stampEmoji || '📍',
-        stampName: x.stampName || x.name || '印章',
+        stampEmoji: x.stampEmoji || '📍', stampName: x.stampName || x.name || '印章',
         introMedia: Array.isArray(x.introMedia) ? x.introMedia.filter(m => m && m.url) : [],
         quizzes: Array.isArray(x.quizzes) ? x.quizzes : []
       };
     });
     if (!locations.length) throw new Error('此程式尚未設定任何景點，請老師先在後台新增');
     collected = locations.map(() => false);
+    attempted = locations.map(() => false);
     dataReady = true;
   }
 
@@ -226,11 +220,8 @@
   };
 
   function openIntro(i, media) {
-    introPending = i;
-    introList = media;
-    introIndex = 0;
-    const modal = document.getElementById('intro-modal');
-    modal.classList.remove('hidden');
+    introPending = i; introList = media; introIndex = 0;
+    document.getElementById('intro-modal').classList.remove('hidden');
     renderIntro();
   }
   function renderIntro() {
@@ -250,12 +241,8 @@
     document.getElementById('btn-intro-prev').disabled = introIndex <= 0;
     document.getElementById('btn-intro-next').disabled = introIndex >= introList.length - 1;
   }
-  document.getElementById('btn-intro-prev').onclick = function () {
-    if (introIndex > 0) { introIndex--; renderIntro(); }
-  };
-  document.getElementById('btn-intro-next').onclick = function () {
-    if (introIndex < introList.length - 1) { introIndex++; renderIntro(); }
-  };
+  document.getElementById('btn-intro-prev').onclick = function () { if (introIndex > 0) { introIndex--; renderIntro(); } };
+  document.getElementById('btn-intro-next').onclick = function () { if (introIndex < introList.length - 1) { introIndex++; renderIntro(); } };
   document.getElementById('btn-intro-enter').onclick = function () {
     document.getElementById('intro-modal').classList.add('hidden');
     document.getElementById('media-stage').innerHTML = '';
@@ -265,11 +252,7 @@
   function ensurePano() {
     if (panorama) return;
     panorama = new google.maps.StreetViewPanorama(document.getElementById('pano'), {
-      addressControl: false,
-      showRoadLabels: false,
-      linksControl: true,
-      panControl: true,
-      enableCloseButton: false
+      addressControl: false, showRoadLabels: false, linksControl: true, panControl: true, enableCloseButton: false
     });
     panorama.addListener('position_changed', function () {
       var p = panorama.getPosition();
@@ -278,11 +261,9 @@
       if (miniMap) miniMap.setCenter(p);
     });
     panorama.addListener('status_changed', function () {
-      var st = panorama.getStatus();
-      if (st === 'OK') hideSvLoading();
+      if (panorama.getStatus() === 'OK') hideSvLoading();
     });
   }
-
   function ensureMiniMap(pos) {
     if (!miniMap) {
       miniMap = new google.maps.Map(document.getElementById('mini-map'), {
@@ -300,54 +281,33 @@
     current = i;
     const loc = locations[i];
     document.getElementById('loc-name').textContent = loc.name;
-    var fmt = (settings.progressFormat || '第 {i} / {total} 站')
-      .replace('{i}', String(i + 1))
-      .replace('{total}', String(locations.length));
+    var fmt = (settings.progressFormat || '第 {i} / {total} 站').replace('{i}', String(i + 1)).replace('{total}', String(locations.length));
     var thematic = String(loc.sub || '').replace(/第\s*\d+\s*\/\s*\d+\s*站\s*[·•\-–—]?\s*/g, '').trim();
     document.getElementById('loc-sub').textContent = thematic ? (fmt + ' · ' + thematic) : fmt;
     document.getElementById('loc-desc').textContent = loc.desc || '';
     rebuildDots();
     updateActionButtons();
-
     const target = { lat: loc.lat, lng: loc.lng };
-    const pov = {
-      heading: loc.heading || 0,
-      pitch: loc.pitch || 0,
-      zoom: loc.zoom != null ? loc.zoom : 1
-    };
-
+    const pov = { heading: loc.heading || 0, pitch: loc.pitch || 0, zoom: loc.zoom != null ? loc.zoom : 1 };
     showSvLoading('載入街景中…', loc.name);
     ensurePano();
     ensureMiniMap(target);
-
     function applyPano(latLng) {
       panorama.setPosition(latLng);
       panorama.setPov({ heading: pov.heading, pitch: pov.pitch });
       if (pov.zoom != null) panorama.setZoom(pov.zoom);
       setTimeout(hideSvLoading, 2500);
     }
-
-    if (!svService) {
-      applyPano(target);
-      return;
-    }
-
+    if (!svService) { applyPano(target); return; }
     svService.getPanorama({ location: target, radius: 150 }, function (data, status) {
-      if (status === 'OK' && data && data.location) {
-        applyPano(data.location.latLng);
-        return;
-      }
+      if (status === 'OK' && data && data.location) { applyPano(data.location.latLng); return; }
       svService.getPanorama({ location: target, radius: 500 }, function (data2, status2) {
         if (status2 === 'OK' && data2 && data2.location) {
           showSvLoading('載入附近街景…', '此座標附近無精確街景，已改用最接近位置');
           applyPano(data2.location.latLng);
           return;
         }
-        showSvLoading(
-          '此位置暫無 Google 街景',
-          '偏遠郊野／離島可能未有覆蓋。仍可答題；或於後台改用有街景的座標。',
-          { hideBar: true }
-        );
+        showSvLoading('此位置暫無 Google 街景', '偏遠郊野／離島可能未有覆蓋。仍可答題；或於後台改用有街景的座標。', { hideBar: true });
         setTimeout(hideSvLoading, 4000);
         try { panorama.setPosition(target); } catch (e) {}
       });
@@ -358,13 +318,11 @@
   window.nextLocation = function () { if (current < locations.length - 1) goToLocation(current + 1); };
 
   window.startQuiz = function () {
-    if (collected[current]) return;
+    if (stationFinished(current)) return;
     const loc = locations[current];
-    if (!loc.quizzes || !loc.quizzes.length) {
-      alert('此站未設定問題');
-      return;
-    }
+    if (!loc.quizzes || !loc.quizzes.length) { alert('此站未設定問題'); return; }
     quizIndex = 0;
+    quizCorrectCount = 0;
     showQuizQ();
     document.getElementById('quiz-modal').classList.remove('hidden');
     document.getElementById('quiz-modal').classList.add('flex');
@@ -388,38 +346,58 @@
         opts.querySelectorAll('button').forEach(b => { b.disabled = true; b.classList.add('opacity-60'); });
         const fb = document.getElementById('quiz-feedback');
         fb.classList.remove('hidden');
-        if (oi === ans) {
+        var correct = oi === ans;
+        if (correct) {
           btn.classList.add('bg-emerald-600');
           fb.innerHTML = '<span class="text-emerald-400">答對了！</span>';
-          setTimeout(function () {
-            if (quizIndex < loc.quizzes.length - 1) {
-              quizIndex++;
-              showQuizQ();
-            } else {
-              collected[current] = true;
-              rebuildPostcard();
-              rebuildDots();
-              updateActionButtons();
-              fb.innerHTML = '<span class="text-emerald-400">全部答對！印章已收集！</span>';
-              setTimeout(function () {
-                closeQuiz();
-                if (collected.every(Boolean)) showEnding();
-              }, 900);
-            }
-          }, 600);
+          quizCorrectCount++;
         } else {
           btn.classList.add('bg-red-700');
-          fb.innerHTML = '<span class="text-red-400">唔啱，再試一次</span>';
-          setTimeout(function () {
-            opts.querySelectorAll('button').forEach(b => {
-              b.disabled = false;
-              b.classList.remove('opacity-60', 'bg-red-700');
-            });
-            fb.classList.add('hidden');
-          }, 800);
+          if (isOneShot()) {
+            fb.innerHTML = '<span class="text-red-400">唔啱</span>';
+          } else {
+            fb.innerHTML = '<span class="text-red-400">唔啱，再試一次</span>';
+            setTimeout(function () {
+              opts.querySelectorAll('button').forEach(b => {
+                b.disabled = false;
+                b.classList.remove('opacity-60', 'bg-red-700');
+              });
+              fb.classList.add('hidden');
+            }, 800);
+            return;
+          }
         }
+        setTimeout(function () {
+          if (quizIndex < loc.quizzes.length - 1) {
+            quizIndex++;
+            showQuizQ();
+          } else {
+            finishLocationQuiz(loc);
+          }
+        }, correct ? 600 : 900);
       };
     });
+  }
+
+  function finishLocationQuiz(loc) {
+    attempted[current] = true;
+    var allCorrect = quizCorrectCount >= (loc.quizzes || []).length;
+    var fb = document.getElementById('quiz-feedback');
+    if (allCorrect) {
+      collected[current] = true;
+      if (fb) fb.innerHTML = '<span class="text-emerald-400">全部答對！印章已收集！</span>';
+    } else {
+      collected[current] = false;
+      if (fb) fb.innerHTML = '<span class="text-amber-300">本站完成（答對 ' + quizCorrectCount + ' / ' + loc.quizzes.length + '），未獲印章</span>';
+    }
+    rebuildPostcard();
+    rebuildDots();
+    updateActionButtons();
+    setTimeout(function () {
+      closeQuiz();
+      var doneAll = isOneShot() ? attempted.every(Boolean) : collected.every(Boolean);
+      if (doneAll) showEnding();
+    }, 1000);
   }
 
   window.closeQuiz = function () {
