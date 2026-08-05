@@ -1,1 +1,350 @@
-WILL_FILL
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>後台 | Geog Stamp Quest v2</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap');
+    body { font-family: 'Noto Sans TC', system-ui, sans-serif; }
+  </style>
+</head>
+<body class="min-h-screen bg-slate-100 text-slate-800">
+  <header class="bg-white border-b sticky top-0 z-20">
+    <div class="max-w-3xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-2">
+      <div>
+        <a href="dashboard.html" class="text-sm text-sky-600 hover:underline"><i class="fas fa-arrow-left mr-1"></i>返回列表</a>
+        <div id="prog-name" class="font-bold text-lg">載入中…</div>
+      </div>
+      <div class="flex gap-2">
+        <a id="link-play" href="#" target="_blank" class="text-sm px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700">遊玩</a>
+        <button id="btn-save" class="text-sm px-4 py-1.5 rounded-lg bg-sky-600 text-white hover:bg-sky-500">儲存全部</button>
+      </div>
+    </div>
+  </header>
+  <main class="max-w-3xl mx-auto px-4 py-6">
+    <div id="status" class="text-sm text-slate-500 mb-4"></div>
+    <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm mb-6">
+      <h2 class="font-bold text-lg mb-1 flex items-center gap-2"><i class="fas fa-cog text-slate-500"></i> 遊戲設定（前台所有文字）</h2>
+      <p class="text-xs text-slate-400 mb-4">呢度改嘅字會出現喺學生遊玩頁面</p>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div><label class="text-xs text-slate-500">中文名稱</label><input id="s-landingTitle" class="w-full border rounded-lg px-2.5 py-1.5 text-sm"></div>
+        <div><label class="text-xs text-slate-500">英文副標題</label><input id="s-landingSubtitle" class="w-full border rounded-lg px-2.5 py-1.5 text-sm"></div>
+        <div class="sm:col-span-2"><label class="text-xs text-slate-500">開頭說明</label><input id="s-landingDesc" class="w-full border rounded-lg px-2.5 py-1.5 text-sm"></div>
+        <div><label class="text-xs text-slate-500">Emoji</label><input id="s-landingEmoji" class="w-full border rounded-lg px-2.5 py-1.5 text-sm"></div>
+        <div><label class="text-xs text-slate-500">開始按鈕</label><input id="s-txtStart" class="w-full border rounded-lg px-2.5 py-1.5 text-sm"></div>
+        <div class="sm:col-span-2"><label class="text-xs text-slate-500">開頭頁底部提示</label><input id="s-landingFooter" class="w-full border rounded-lg px-2.5 py-1.5 text-sm"></div>
+        <div><label class="text-xs text-slate-500">明信片按鈕</label><input id="s-txtPostcard" class="w-full border rounded-lg px-2.5 py-1.5 text-sm"></div>
+        <div><label class="text-xs text-slate-500">上一站</label><input id="s-txtPrev" class="w-full border rounded-lg px-2.5 py-1.5 text-sm"></div>
+        <div><label class="text-xs text-slate-500">下一站</label><input id="s-txtNext" class="w-full border rounded-lg px-2.5 py-1.5 text-sm"></div>
+        <div><label class="text-xs text-slate-500">開始任務</label><input id="s-txtQuiz" class="w-full border rounded-lg px-2.5 py-1.5 text-sm"></div>
+        <div><label class="text-xs text-slate-500">已完成</label><input id="s-txtDone" class="w-full border rounded-lg px-2.5 py-1.5 text-sm"></div>
+        <div><label class="text-xs text-slate-500">進度格式（用 {i} 同 {total}）</label><input id="s-progressFormat" class="w-full border rounded-lg px-2.5 py-1.5 text-sm" placeholder="第 {i} / {total} 站"></div>
+        <div><label class="text-xs text-slate-500">明信片標題</label><input id="s-postcardTitle" class="w-full border rounded-lg px-2.5 py-1.5 text-sm"></div>
+        <div><label class="text-xs text-slate-500">明信片剩餘提示（用 {n}）</label><input id="s-postcardMsg" class="w-full border rounded-lg px-2.5 py-1.5 text-sm"></div>
+        <div><label class="text-xs text-slate-500">通關標題（用 {n}）</label><input id="s-endingTitle" class="w-full border rounded-lg px-2.5 py-1.5 text-sm"></div>
+        <div><label class="text-xs text-slate-500">通關說明</label><input id="s-endingDesc" class="w-full border rounded-lg px-2.5 py-1.5 text-sm"></div>
+        <div><label class="text-xs text-slate-500">再玩一次</label><input id="s-txtReplay" class="w-full border rounded-lg px-2.5 py-1.5 text-sm"></div>
+      </div>
+      <button type="button" id="btn-save-settings" class="mt-4 w-full sm:w-auto px-5 py-2 rounded-xl bg-amber-500 text-white font-medium hover:bg-amber-400 text-sm">只儲存遊戲設定</button>
+    </div>
+    <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+      <h2 class="font-bold text-lg">景點列表</h2>
+      <div class="flex flex-wrap gap-2">
+        <button type="button" id="btn-export" class="text-sm px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50"><i class="fas fa-download mr-1"></i>匯出 JSON</button>
+        <label class="text-sm px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 cursor-pointer"><i class="fas fa-upload mr-1"></i>匯入 JSON<input type="file" id="import-file" accept=".json,application/json" class="hidden"></label>
+        <button type="button" id="btn-add" class="text-sm px-3 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-500"><i class="fas fa-plus mr-1"></i>新增景點</button>
+      </div>
+    </div>
+    <div id="loc-list" class="space-y-4"></div>
+  </main>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <script src="firebase-config.js"></script>
+  <script>
+    const params = new URLSearchParams(location.search);
+    const programId = params.get('p');
+    if (!programId) location.href = 'dashboard.html';
+    let currentUser = null;
+    let programMeta = null;
+    let locations = [];
+    const db = firebase.firestore();
+
+    const DEFAULT_SETTINGS = {
+      landingTitle: '地理明信片', landingSubtitle: 'Geog Stamp Quest',
+      landingDesc: '第一身視角探索，完成任務，集齊明信片上的印章！',
+      landingEmoji: '🏝️', txtStart: '開始冒險',
+      landingFooter: '真正 Google 街景 360° · 建議用手機或平板玩',
+      txtPostcard: '明信片', txtPrev: '上一站', txtNext: '下一站',
+      txtQuiz: '開始任務', txtDone: '已完成', progressFormat: '第 {i} / {total} 站',
+      postcardTitle: '地理明信片', postcardMsg: '還有 {n} 個印等你收集！',
+      endingTitle: '恭喜集齊 {n} 個印！', endingDesc: '你已經完成探索！明信片已經蓋滿印章。',
+      txtReplay: '再玩一次', quizMode: 'retry'
+    };
+
+    function fillSettingsForm(s) {
+      const x = Object.assign({}, DEFAULT_SETTINGS, s || {});
+      Object.keys(DEFAULT_SETTINGS).forEach(k => {
+        const el = document.getElementById('s-' + k);
+        if (el) el.value = x[k] != null ? x[k] : '';
+      });
+    }
+    function readSettingsForm() {
+      const o = {};
+      Object.keys(DEFAULT_SETTINGS).forEach(k => {
+        const el = document.getElementById('s-' + k);
+        o[k] = el ? el.value : DEFAULT_SETTINGS[k];
+      });
+      return o;
+    }
+    window.readSettingsForm = readSettingsForm;
+
+    async function boot() {
+      const prog = await db.collection('programs').doc(programId).get();
+      if (!prog.exists) throw new Error('找不到此程式');
+      programMeta = { id: prog.id, ...prog.data() };
+      if (programMeta.ownerUid !== currentUser.uid) throw new Error('你沒有權限編輯此程式');
+      document.getElementById('prog-name').textContent = programMeta.name || '未命名';
+      document.getElementById('link-play').href = 'play.html?p=' + programId;
+      fillSettingsForm(programMeta.settings);
+      const snap = await db.collection('programs').doc(programId).collection('locations').orderBy('order').get();
+      locations = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      render();
+      document.getElementById('status').textContent = '共 ' + locations.length + ' 個景點';
+    }
+
+    function emptyLoc() {
+      return {
+        name: '新景點', sub: '', desc: '', lat: 22.2086, lng: 114.0284,
+        heading: 0, pitch: 0, zoom: 1, stampEmoji: '📍', stampName: '',
+        order: locations.length, introMedia: [], quizzes: []
+      };
+    }
+
+    function render() {
+      const list = document.getElementById('loc-list');
+      list.innerHTML = locations.map((loc, i) => locCard(loc, i)).join('');
+      bindCards();
+    }
+
+    function locCard(loc, i) {
+      const quizzes = Array.isArray(loc.quizzes) ? loc.quizzes : [];
+      const media = Array.isArray(loc.introMedia) ? loc.introMedia : [];
+      return '<div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm" data-i="' + i + '">' +
+        '<div class="flex items-start justify-between gap-2 mb-3">' +
+        '<div class="font-bold text-slate-700">#' + (i + 1) + ' <span class="text-slate-400 font-normal text-sm">拖曳排序用上下按鈕</span></div>' +
+        '<div class="flex gap-1">' +
+        '<button type="button" class="btn-up px-2 py-1 text-xs rounded border" ' + (i === 0 ? 'disabled' : '') + '>↑</button>' +
+        '<button type="button" class="btn-down px-2 py-1 text-xs rounded border" ' + (i >= locations.length - 1 ? 'disabled' : '') + '>↓</button>' +
+        '<button type="button" class="btn-del px-2 py-1 text-xs rounded border text-red-600">刪</button></div></div>' +
+        '<div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">' +
+        '<div><label class="text-xs text-slate-500">名稱</label><input data-f="name" class="w-full border rounded-lg px-2 py-1.5" value="' + esc(loc.name) + '"></div>' +
+        '<div><label class="text-xs text-slate-500">副標</label><input data-f="sub" class="w-full border rounded-lg px-2 py-1.5" value="' + esc(loc.sub) + '"></div>' +
+        '<div class="sm:col-span-2"><label class="text-xs text-slate-500">說明</label><textarea data-f="desc" class="w-full border rounded-lg px-2 py-1.5" rows="2">' + esc(loc.desc) + '</textarea></div>' +
+        '<div class="sm:col-span-2"><label class="text-xs text-slate-500">Google 街景 URL（貼上自動填座標）</label><input data-f="svurl" class="w-full border rounded-lg px-2 py-1.5 text-xs" placeholder="https://www.google.com/maps/@..."></div>' +
+        '<div><label class="text-xs text-slate-500">緯度 lat</label><input data-f="lat" type="number" step="any" class="w-full border rounded-lg px-2 py-1.5" value="' + (loc.lat != null ? loc.lat : '') + '"></div>' +
+        '<div><label class="text-xs text-slate-500">經度 lng</label><input data-f="lng" type="number" step="any" class="w-full border rounded-lg px-2 py-1.5" value="' + (loc.lng != null ? loc.lng : '') + '"></div>' +
+        '<div><label class="text-xs text-slate-500">水平 heading</label><input data-f="heading" type="number" step="any" class="w-full border rounded-lg px-2 py-1.5" value="' + (loc.heading != null ? loc.heading : 0) + '"></div>' +
+        '<div><label class="text-xs text-slate-500">俯仰 pitch</label><input data-f="pitch" type="number" step="any" class="w-full border rounded-lg px-2 py-1.5" value="' + (loc.pitch != null ? loc.pitch : 0) + '"></div>' +
+        '<div><label class="text-xs text-slate-500">縮放 zoom</label><input data-f="zoom" type="number" step="any" class="w-full border rounded-lg px-2 py-1.5" value="' + (loc.zoom != null ? loc.zoom : 1) + '"></div>' +
+        '<div><label class="text-xs text-slate-500">印章 emoji</label><input data-f="stampEmoji" class="w-full border rounded-lg px-2 py-1.5" value="' + esc(loc.stampEmoji || '📍') + '"></div>' +
+        '<div class="sm:col-span-2"><label class="text-xs text-slate-500">印章名稱</label><input data-f="stampName" class="w-full border rounded-lg px-2 py-1.5" value="' + esc(loc.stampName || '') + '"></div>' +
+        '</div>' +
+        '<div class="mt-3 border-t pt-3">' +
+        '<div class="flex items-center justify-between mb-2"><span class="text-sm font-medium">前導媒體</span><button type="button" class="btn-add-media text-xs px-2 py-1 rounded bg-slate-100">+ 媒體</button></div>' +
+        '<div class="media-list space-y-2">' + media.map((m, mi) => mediaRow(m, mi)).join('') + '</div></div>' +
+        '<div class="mt-3 border-t pt-3">' +
+        '<div class="flex items-center justify-between mb-2"><span class="text-sm font-medium">問題（' + quizzes.length + '）</span><button type="button" class="btn-add-quiz text-xs px-2 py-1 rounded bg-slate-100">+ 問題</button></div>' +
+        '<div class="quiz-list space-y-3">' + quizzes.map((q, qi) => quizRow(q, qi)).join('') + '</div></div></div>';
+    }
+
+    function mediaRow(m, mi) {
+      m = m || {};
+      return '<div class="flex flex-wrap gap-2 items-center bg-slate-50 rounded-lg p-2" data-mi="' + mi + '">' +
+        '<select data-mf="type" class="border rounded px-2 py-1 text-xs"><option value="image"' + (m.type !== 'youtube' ? ' selected' : '') + '>圖片</option><option value="youtube"' + (m.type === 'youtube' ? ' selected' : '') + '>YouTube</option></select>' +
+        '<input data-mf="url" class="flex-1 min-w-[140px] border rounded px-2 py-1 text-xs" placeholder="URL" value="' + esc(m.url || '') + '">' +
+        '<button type="button" class="btn-del-media text-xs text-red-600 px-2">刪</button></div>';
+    }
+
+    function quizRow(q, qi) {
+      q = q || { title: '', q: '', options: ['', '', '', ''], answer: 0 };
+      const opts = Array.isArray(q.options) ? q.options.slice() : [];
+      while (opts.length < 2) opts.push('');
+      return '<div class="border rounded-xl p-3 bg-slate-50" data-qi="' + qi + '">' +
+        '<div class="flex justify-between mb-2"><span class="text-xs font-medium text-slate-600">問題 ' + (qi + 1) + '</span><button type="button" class="btn-del-quiz text-xs text-red-600">刪問題</button></div>' +
+        '<input data-qf="title" class="w-full border rounded px-2 py-1 text-xs mb-1" placeholder="題目標題（可空）" value="' + esc(q.title || '') + '">' +
+        '<textarea data-qf="q" class="w-full border rounded px-2 py-1 text-sm mb-2" rows="2" placeholder="問題內容">' + esc(q.q || '') + '</textarea>' +
+        '<div class="opt-list space-y-1 mb-2">' + opts.map((o, oi) =>
+          '<div class="flex gap-2 items-center"><span class="text-xs text-amber-600 w-4">' + oi + '</span><input data-oi="' + oi + '" class="flex-1 border rounded px-2 py-1 text-sm" value="' + esc(o) + '"><button type="button" class="btn-del-opt text-xs text-slate-400" data-oi="' + oi + '">×</button></div>'
+        ).join('') + '</div>' +
+        '<button type="button" class="btn-add-opt text-xs px-2 py-1 rounded border mb-2">+ 選項</button>' +
+        '<div><label class="text-xs text-slate-500">正確答案編號</label><input data-qf="answer" type="number" min="0" class="w-24 border rounded px-2 py-1 text-sm ml-2" value="' + (q.answer != null ? q.answer : 0) + '"></div></div>';
+    }
+
+    function esc(s) {
+      return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+    }
+
+    function parseSvUrl(url) {
+      try {
+        const u = String(url || '');
+        let lat = null, lng = null, heading = null, pitch = null, zoom = null;
+        const at = u.match(/@(-?\d+\.?\d*),(-?\d+\.?\d*),?([\d.]*)a?,?([\d.]*)y?,?([\d.-]*)h?,?([\d.-]*)t?/);
+        if (at) {
+          lat = parseFloat(at[1]); lng = parseFloat(at[2]);
+          if (at[5]) heading = parseFloat(at[5]);
+          if (at[6]) pitch = parseFloat(at[6]) - 90;
+        }
+        const data = u.match(/!3d(-?\d+\.?\d*)!4d(-?\d+\.?\d*)/);
+        if (data) { lat = parseFloat(data[1]); lng = parseFloat(data[2]); }
+        const h = u.match(/!1d[\d.]+!2d[\d.]+!3d(-?\d+\.?\d*)!4d(-?\d+\.?\d*)/);
+        const y = u.match(/[?&]heading=([\d.-]+)/i); if (y) heading = parseFloat(y[1]);
+        const p = u.match(/[?&]pitch=([\d.-]+)/i); if (p) pitch = parseFloat(p[1]);
+        const fov = u.match(/[?&]fov=([\d.-]+)/i);
+        if (u.includes('streetview') || u.includes('3a!')) {
+          const m3 = u.match(/!3e\d+!4i\d+/);
+        }
+        return { lat, lng, heading, pitch, zoom };
+      } catch (e) { return {}; }
+    }
+
+    function bindCards() {
+      document.querySelectorAll('#loc-list > div[data-i]').forEach(card => {
+        const i = Number(card.getAttribute('data-i'));
+        card.querySelectorAll('[data-f]').forEach(inp => {
+          inp.addEventListener('change', () => {
+            const f = inp.getAttribute('data-f');
+            if (f === 'svurl') {
+              const parsed = parseSvUrl(inp.value);
+              if (parsed.lat != null) { locations[i].lat = parsed.lat; card.querySelector('[data-f=lat]').value = parsed.lat; }
+              if (parsed.lng != null) { locations[i].lng = parsed.lng; card.querySelector('[data-f=lng]').value = parsed.lng; }
+              if (parsed.heading != null) { locations[i].heading = parsed.heading; card.querySelector('[data-f=heading]').value = parsed.heading; }
+              if (parsed.pitch != null) { locations[i].pitch = parsed.pitch; card.querySelector('[data-f=pitch]').value = parsed.pitch; }
+              return;
+            }
+            let v = inp.value;
+            if (['lat','lng','heading','pitch','zoom'].includes(f)) v = parseFloat(v);
+            locations[i][f] = v;
+          });
+        });
+        card.querySelector('.btn-up')?.addEventListener('click', () => { if (i > 0) { const t = locations[i]; locations[i] = locations[i-1]; locations[i-1] = t; render(); } });
+        card.querySelector('.btn-down')?.addEventListener('click', () => { if (i < locations.length-1) { const t = locations[i]; locations[i] = locations[i+1]; locations[i+1] = t; render(); } });
+        card.querySelector('.btn-del')?.addEventListener('click', () => { if (confirm('刪除此景點？')) { locations.splice(i, 1); render(); } });
+        card.querySelector('.btn-add-media')?.addEventListener('click', () => {
+          if (!locations[i].introMedia) locations[i].introMedia = [];
+          locations[i].introMedia.push({ type: 'image', url: '' });
+          render();
+        });
+        card.querySelectorAll('.btn-del-media').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const mi = Number(btn.closest('[data-mi]').getAttribute('data-mi'));
+            locations[i].introMedia.splice(mi, 1);
+            render();
+          });
+        });
+        card.querySelectorAll('[data-mf]').forEach(inp => {
+          inp.addEventListener('change', () => {
+            const row = inp.closest('[data-mi]');
+            const mi = Number(row.getAttribute('data-mi'));
+            const f = inp.getAttribute('data-mf');
+            if (!locations[i].introMedia[mi]) locations[i].introMedia[mi] = {};
+            locations[i].introMedia[mi][f] = inp.value;
+          });
+        });
+        card.querySelector('.btn-add-quiz')?.addEventListener('click', () => {
+          if (!locations[i].quizzes) locations[i].quizzes = [];
+          locations[i].quizzes.push({ title: '', q: '', options: ['', '', '', ''], answer: 0 });
+          render();
+        });
+        card.querySelectorAll('.btn-del-quiz').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const qi = Number(btn.closest('[data-qi]').getAttribute('data-qi'));
+            locations[i].quizzes.splice(qi, 1);
+            render();
+          });
+        });
+        card.querySelectorAll('.btn-add-opt').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const qi = Number(btn.closest('[data-qi]').getAttribute('data-qi'));
+            if (!locations[i].quizzes[qi].options) locations[i].quizzes[qi].options = [];
+            locations[i].quizzes[qi].options.push('');
+            render();
+          });
+        });
+        card.querySelectorAll('.btn-del-opt').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const qi = Number(btn.closest('[data-qi]').getAttribute('data-qi'));
+            const oi = Number(btn.getAttribute('data-oi'));
+            locations[i].quizzes[qi].options.splice(oi, 1);
+            render();
+          });
+        });
+        card.querySelectorAll('[data-qf]').forEach(inp => {
+          inp.addEventListener('change', () => {
+            const qi = Number(inp.closest('[data-qi]').getAttribute('data-qi'));
+            const f = inp.getAttribute('data-qf');
+            let v = inp.value;
+            if (f === 'answer') v = parseInt(v, 10) || 0;
+            locations[i].quizzes[qi][f] = v;
+          });
+        });
+        card.querySelectorAll('[data-oi]').forEach(inp => {
+          if (!inp.matches('input')) return;
+          inp.addEventListener('change', () => {
+            const qi = Number(inp.closest('[data-qi]').getAttribute('data-qi'));
+            const oi = Number(inp.getAttribute('data-oi'));
+            if (!locations[i].quizzes[qi].options) locations[i].quizzes[qi].options = [];
+            locations[i].quizzes[qi].options[oi] = inp.value;
+          });
+        });
+      });
+    }
+
+    document.getElementById('btn-add').onclick = () => { locations.push(emptyLoc()); render(); };
+    document.getElementById('btn-save-settings').onclick = async () => {
+      try {
+        await db.collection('programs').doc(programId).update({ settings: readSettingsForm(), updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+        programMeta.settings = readSettingsForm();
+        document.getElementById('status').textContent = '設定已儲存 ✓';
+      } catch (e) { alert(e.message); }
+    };
+    document.getElementById('btn-save').onclick = async () => {
+      try {
+        await db.collection('programs').doc(programId).update({ settings: readSettingsForm(), updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+        programMeta.settings = readSettingsForm();
+        const col = db.collection('programs').doc(programId).collection('locations');
+        const existing = await col.get();
+        const batch = db.batch();
+        existing.docs.forEach(d => batch.delete(d.ref));
+        locations.forEach((loc, idx) => {
+          const ref = col.doc();
+          const data = {
+            name: loc.name || '', sub: loc.sub || '', desc: loc.desc || '',
+            lat: Number(loc.lat) || 0, lng: Number(loc.lng) || 0,
+            heading: Number(loc.heading) || 0, pitch: Number(loc.pitch) || 0,
+            zoom: loc.zoom != null ? Number(loc.zoom) : 1,
+            stampEmoji: loc.stampEmoji || '📍', stampName: loc.stampName || '',
+            order: idx,
+            introMedia: Array.isArray(loc.introMedia) ? loc.introMedia.filter(m => m && m.url) : [],
+            quizzes: Array.isArray(loc.quizzes) ? loc.quizzes : []
+          };
+          batch.set(ref, data);
+        });
+        await batch.commit();
+        document.getElementById('status').textContent = '已儲存全部 ✓（' + locations.length + ' 景點）';
+      } catch (e) { alert(e.message); }
+    };
+
+    firebase.auth().onAuthStateChanged(user => {
+      if (!user) { location.href = 'index.html'; return; }
+      currentUser = user;
+      boot().catch(e => { document.getElementById('status').textContent = '錯誤：' + e.message; });
+    });
+  </script>
+  <script src="admin-io.js?v=2"></script>
+  <script src="admin-quiz-mode.js?v=2"></script>
+</body>
+</html>
